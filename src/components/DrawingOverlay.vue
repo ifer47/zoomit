@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, nextTick, computed } from 'vue'
-import { useDrawing, type Tool, type Point, type DrawAction } from '../composables/useDrawing'
+import { useDrawing, type Tool, type DrawAction } from '../composables/useDrawing'
 import SettingsPanel from './SettingsPanel.vue'
 import TextBox from './TextBox.vue'
 import Icon from './Icons.vue'
@@ -73,10 +73,6 @@ function resizeCanvas() {
   if (ctx) ctx.scale(dpr, dpr)
 
   redrawAll()
-}
-
-function getPoint(e: MouseEvent): Point {
-  return { x: e.clientX, y: e.clientY }
 }
 
 let toolBeforeModifier: string | null = null
@@ -156,7 +152,7 @@ function onMouseDown(e: MouseEvent) {
     currentTool.value = 'ellipse'
   }
 
-  startDraw(getPoint(e))
+  startDraw({ x: e.clientX, y: e.clientY })
 }
 
 function onPointerMove(e: PointerEvent) {
@@ -228,11 +224,11 @@ function onKeyDown(e: KeyboardEvent) {
   }
 }
 
-function getCursorStyle(): string {
+const cursorStyle = computed(() => {
   if (currentTool.value === 'eraser') return 'cell'
   if (currentTool.value === 'text') return 'text'
   return 'crosshair'
-}
+})
 
 onMounted(() => {
   resizeCanvas()
@@ -281,7 +277,7 @@ function exitDrawing() {
     <canvas
       ref="canvasRef"
       class="drawing-canvas"
-      :style="{ cursor: getCursorStyle() }"
+      :style="{ cursor: cursorStyle }"
       @pointerdown="onMouseDown"
       @pointermove="onPointerMove"
       @pointerup="onMouseUp"

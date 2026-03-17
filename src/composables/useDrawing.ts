@@ -1,4 +1,4 @@
-import { ref, reactive, type Ref } from 'vue'
+import { ref, shallowRef, type Ref } from 'vue'
 
 export type Tool = 'pen' | 'highlighter' | 'arrow' | 'rect' | 'ellipse' | 'line' | 'eraser' | 'text'
 
@@ -24,9 +24,9 @@ export function useDrawing(canvasRef: Ref<HTMLCanvasElement | null>) {
   const currentColor = ref('#FF0000')
   const lineWidth = ref(3)
   const isDrawing = ref(false)
-  const history = reactive<DrawAction[]>([])
-  const redoStack = reactive<DrawAction[]>([])
-  const currentAction = ref<DrawAction | null>(null)
+  const history: DrawAction[] = []
+  const redoStack: DrawAction[] = []
+  const currentAction = shallowRef<DrawAction | null>(null)
 
   let cacheCanvas: HTMLCanvasElement | null = null
   let cacheCtx: CanvasRenderingContext2D | null = null
@@ -56,8 +56,8 @@ export function useDrawing(canvasRef: Ref<HTMLCanvasElement | null>) {
 
     if (!cacheValid && cacheCtx) {
       cacheCtx.clearRect(0, 0, cacheCanvas.width, cacheCanvas.height)
-      for (const action of history) {
-        drawActionOn(cacheCtx, action)
+      for (let i = 0; i < history.length; i++) {
+        drawActionOn(cacheCtx, history[i])
       }
       cacheValid = true
     }
@@ -82,8 +82,9 @@ export function useDrawing(canvasRef: Ref<HTMLCanvasElement | null>) {
     }
     ctx.restore()
 
-    if (currentAction.value) {
-      drawActionOn(ctx, currentAction.value)
+    const action = currentAction.value
+    if (action) {
+      drawActionOn(ctx, action)
     }
   }
 
@@ -113,11 +114,11 @@ export function useDrawing(canvasRef: Ref<HTMLCanvasElement | null>) {
       text,
       fontSize,
     }
-    history.push(action)
     redoStack.length = 0
 
     ensureCache()
     if (cacheCtx) drawActionOn(cacheCtx, action)
+    history.push(action)
     flushRender()
   }
 
@@ -140,30 +141,39 @@ export function useDrawing(canvasRef: Ref<HTMLCanvasElement | null>) {
   }
 
   function draw(point: Point) {
-    if (!isDrawing.value || !currentAction.value) return
-
+    if (!isDrawing.value) return
     const action = currentAction.value
+    if (!action) return
+
+    const pts = action.points
     const isFreehand = action.tool === 'pen' || action.tool === 'highlighter' || action.tool === 'eraser'
 
-    if (isFreehand && action.points.length > 0) {
-      const last = action.points[action.points.length - 1]
+    if (isFreehand) {
+      const last = pts[pts.length - 1]
       const dx = point.x - last.x
       const dy = point.y - last.y
       if (dx * dx + dy * dy < MIN_DIST_SQ) return
+      pts.push(point)
+    } else {
+      if (pts.length === 1) {
+        pts.push(point)
+      } else {
+        pts[1] = point
+      }
     }
 
-    action.points.push(point)
     scheduleRender()
   }
 
   function endDraw() {
-    if (!isDrawing.value || !currentAction.value) return
+    if (!isDrawing.value) return
+    const action = currentAction.value
+    if (!action) return
     isDrawing.value = false
 
-    history.push(currentAction.value)
-
     ensureCache()
-    if (cacheCtx) drawActionOn(cacheCtx, currentAction.value)
+    if (cacheCtx) drawActionOn(cacheCtx, action)
+    history.push(action)
 
     currentAction.value = null
     flushRender()
@@ -223,16 +233,16 @@ export function useDrawing(canvasRef: Ref<HTMLCanvasElement | null>) {
         drawFreehand(ctx, pts)
         break
       case 'line':
-        drawLine(ctx, pts[0], pts[pts.length - 1])
+        drawLine(ctx, pts[0], pts[1])
         break
       case 'arrow':
-        drawArrow(ctx, pts[0], pts[pts.length - 1])
+        drawArrow(ctx, pts[0], pts[1])
         break
       case 'rect':
-        drawRect(ctx, pts[0], pts[pts.length - 1])
+        drawRect(ctx, pts[0], pts[1])
         break
       case 'ellipse':
-        drawEllipse(ctx, pts[0], pts[pts.length - 1])
+        drawEllipse(ctx, pts[0], pts[1])
         break
     }
 
