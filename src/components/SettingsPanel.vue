@@ -1,7 +1,10 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted, type Component } from 'vue'
 import type { Tool } from '../composables/useDrawing'
-import Icon from './Icons.vue'
+import {
+  Pen, Highlighter, ArrowUpRight, Square, Circle,
+  Minus, Eraser, Type,
+} from 'lucide-vue-next'
 
 const props = defineProps<{
   currentTool: Tool
@@ -18,15 +21,15 @@ const emit = defineEmits<{
   close: []
 }>()
 
-const tools: { id: Tool; icon: string; label: string; key: string }[] = [
-  { id: 'pen', icon: 'pen', label: '画笔', key: '1' },
-  { id: 'highlighter', icon: 'highlighter', label: '荧光笔', key: '2' },
-  { id: 'arrow', icon: 'arrow', label: '箭头', key: '3' },
-  { id: 'rect', icon: 'rect', label: '矩形', key: '4' },
-  { id: 'ellipse', icon: 'ellipse', label: '椭圆', key: '5' },
-  { id: 'line', icon: 'line', label: '直线', key: '6' },
-  { id: 'eraser', icon: 'eraser', label: '橡皮擦', key: '7' },
-  { id: 'text', icon: 'text', label: '文字', key: '8' },
+const tools: { id: Tool; icon: Component; label: string; key: string }[] = [
+  { id: 'pen', icon: Pen, label: '画笔', key: '1' },
+  { id: 'highlighter', icon: Highlighter, label: '荧光笔', key: '2' },
+  { id: 'arrow', icon: ArrowUpRight, label: '箭头', key: '3' },
+  { id: 'rect', icon: Square, label: '矩形', key: '4' },
+  { id: 'ellipse', icon: Circle, label: '椭圆', key: '5' },
+  { id: 'line', icon: Minus, label: '直线', key: '6' },
+  { id: 'eraser', icon: Eraser, label: '橡皮擦', key: '7' },
+  { id: 'text', icon: Type, label: '文字', key: '8' },
 ]
 
 const colors = [
@@ -108,7 +111,7 @@ onUnmounted(() => {
             :title="`${tool.label} (${tool.key})`"
             @click="emit('selectTool', tool.id); emit('close')"
           >
-            <Icon :name="tool.icon" :size="18" />
+            <component :is="tool.icon" :size="18" />
             <span class="tool-label">{{ tool.label }}</span>
             <span class="tool-key">{{ tool.key }}</span>
           </button>

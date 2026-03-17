@@ -92,8 +92,7 @@ zoomit/
 │   ├── components/
 │   │   ├── DrawingOverlay.vue   # 绘图覆盖层（Canvas + 交互）
 │   │   ├── SettingsPanel.vue    # 设置面板（工具 / 颜色 / 线宽）
-│   │   ├── TextBox.vue          # 内联文字输入框
-│   │   └── Icons.vue            # SVG 图标组件
+│   │   └── TextBox.vue          # 内联文字输入框
 │   ├── composables/
 │   │   └── useDrawing.ts        # 绘图引擎（画笔、形状、文字、撤销重做）
 │   ├── types/

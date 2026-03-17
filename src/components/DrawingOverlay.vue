@@ -1,9 +1,23 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, nextTick, computed } from 'vue'
+import { ref, onMounted, onUnmounted, nextTick, computed, type Component } from 'vue'
 import { useDrawing, type Tool, type DrawAction } from '../composables/useDrawing'
 import SettingsPanel from './SettingsPanel.vue'
 import TextBox from './TextBox.vue'
-import Icon from './Icons.vue'
+import {
+  Pen, Highlighter, ArrowUpRight, Square, Circle,
+  Minus, Eraser, Type,
+} from 'lucide-vue-next'
+
+const toolIconMap: Record<Tool, Component> = {
+  pen: Pen,
+  highlighter: Highlighter,
+  arrow: ArrowUpRight,
+  rect: Square,
+  ellipse: Circle,
+  line: Minus,
+  eraser: Eraser,
+  text: Type,
+}
 
 const canvasRef = ref<HTMLCanvasElement | null>(null)
 const containerRef = ref<HTMLDivElement | null>(null)
@@ -298,7 +312,7 @@ function exitDrawing() {
 
     <Transition name="tooltip-fade">
       <div v-if="active && toolTip" class="tool-tooltip">
-        <Icon v-if="toolTipTool" :name="toolTipTool" :size="18" color="#fff" />
+        <component v-if="toolTipTool" :is="toolIconMap[toolTipTool]" :size="18" color="#fff" />
         <span>{{ toolTip }}</span>
       </div>
     </Transition>
