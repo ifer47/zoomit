@@ -25,6 +25,7 @@ const tools: { id: Tool; icon: string; label: string; key: string }[] = [
   { id: 'ellipse', icon: 'ellipse', label: '椭圆', key: '5' },
   { id: 'line', icon: 'line', label: '直线', key: '6' },
   { id: 'eraser', icon: 'eraser', label: '橡皮擦', key: '7' },
+  { id: 'text', icon: 'text', label: '文字', key: '8' },
 ]
 
 const colors = [
@@ -59,7 +60,7 @@ function getPanelStyle() {
       <div class="section">
         <div class="section-header">
           <span class="section-title">工具</span>
-          <span class="section-hint">按 1-7 切换</span>
+          <span class="section-hint">按 1-8 切换</span>
         </div>
         <div class="tool-grid">
           <button

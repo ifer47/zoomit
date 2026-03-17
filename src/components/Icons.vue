@@ -82,6 +82,15 @@ defineProps<{
       <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
     </template>
 
+    <!-- 文字 text -->
+    <template v-else-if="name === 'text'">
+      <path d="M4 4h16" stroke-width="2.5" />
+      <path d="M12 4v16" stroke-width="2.5" />
+      <path d="M7 20h10" stroke-width="2.5" />
+      <path d="M4 4v4" stroke-width="2" />
+      <path d="M20 4v4" stroke-width="2" />
+    </template>
+
     <!-- 关闭 close -->
     <template v-else-if="name === 'close'">
       <path d="M18 6 6 18" />

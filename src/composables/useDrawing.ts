@@ -1,6 +1,6 @@
 import { ref, reactive, type Ref } from 'vue'
 
-export type Tool = 'pen' | 'highlighter' | 'arrow' | 'rect' | 'ellipse' | 'line' | 'eraser'
+export type Tool = 'pen' | 'highlighter' | 'arrow' | 'rect' | 'ellipse' | 'line' | 'eraser' | 'text'
 
 export interface Point {
   x: number
@@ -13,6 +13,8 @@ export interface DrawAction {
   lineWidth: number
   opacity: number
   points: Point[]
+  text?: string
+  fontSize?: number
 }
 
 export function useDrawing(canvasRef: Ref<HTMLCanvasElement | null>) {
@@ -28,7 +30,23 @@ export function useDrawing(canvasRef: Ref<HTMLCanvasElement | null>) {
     return canvasRef.value?.getContext('2d') ?? null
   }
 
+  function addTextAction(text: string, x: number, y: number, width: number, fontSize: number, color?: string) {
+    const action: DrawAction = {
+      tool: 'text',
+      color: color ?? currentColor.value,
+      lineWidth: lineWidth.value,
+      opacity: 1,
+      points: [{ x, y }],
+      text,
+      fontSize,
+    }
+    history.push(action)
+    redoStack.length = 0
+    redrawAll()
+  }
+
   function startDraw(point: Point) {
+    if (currentTool.value === 'text') return
     isDrawing.value = true
     redoStack.length = 0
 
@@ -80,6 +98,27 @@ export function useDrawing(canvasRef: Ref<HTMLCanvasElement | null>) {
     ctx.lineWidth = action.lineWidth
     ctx.lineCap = 'round'
     ctx.lineJoin = 'round'
+
+    if (action.tool === 'text') {
+      const fs = action.fontSize ?? 24
+      ctx.font = `${fs}px "Microsoft YaHei", "PingFang SC", system-ui, sans-serif`
+      ctx.globalAlpha = 1
+      ctx.fillStyle = action.color
+      ctx.textBaseline = 'top'
+      const lines = (action.text ?? '').split('\n')
+      // HTML textarea 的 padding 为 0 2px，所以 x 偏移 2px
+      const x = action.points[0].x + 2
+      // DOM 中 textarea 的 top 为 y - fs * 1.3 / 2 = y - fs * 0.65
+      // 文本在 1.3 行高中垂直居中，理论顶部是 y - fs * 0.5。
+      // 对于中文字体（如微软雅黑），字体的实际渲染基线比理论居中位置更靠下。
+      // 经过比例换算，补偿值约为字号的 10%~12%，这里使用 fs * 0.12 向下补偿，确保 Canvas 渲染不往上跳。
+      const startY = action.points[0].y - fs * 0.5 + fs * 0.12
+      for (let i = 0; i < lines.length; i++) {
+        ctx.fillText(lines[i], x, startY + i * fs * 1.3)
+      }
+      ctx.restore()
+      return
+    }
 
     const pts = action.points
     if (pts.length < 2) {
@@ -213,6 +252,38 @@ export function useDrawing(canvasRef: Ref<HTMLCanvasElement | null>) {
     }
   }
 
+  function findTextAt(p: Point): { action: DrawAction, index: number } | null {
+    const ctx = getCtx()
+    if (!ctx) return null
+    for (let i = history.length - 1; i >= 0; i--) {
+      const action = history[i]
+      if (action.tool === 'text' && action.text) {
+        const fs = action.fontSize ?? 24
+        ctx.font = `${fs}px "Microsoft YaHei", "PingFang SC", system-ui, sans-serif`
+        const lines = action.text.split('\n')
+        let maxWidth = 0
+        for (const line of lines) {
+          const w = ctx.measureText(line).width
+          if (w > maxWidth) maxWidth = w
+        }
+        const h = lines.length * fs * 1.3
+        const boxX = action.points[0].x - 10
+        const boxY = action.points[0].y - fs * 0.65 - 10
+        if (p.x >= boxX && p.x <= boxX + maxWidth + 20 && p.y >= boxY && p.y <= boxY + h + 20) {
+          return { action, index: i }
+        }
+      }
+    }
+    return null
+  }
+
+  function removeAction(index: number) {
+    if (index >= 0 && index < history.length) {
+      history.splice(index, 1)
+      redrawAll()
+    }
+  }
+
   return {
     currentTool,
     currentColor,
@@ -222,6 +293,9 @@ export function useDrawing(canvasRef: Ref<HTMLCanvasElement | null>) {
     startDraw,
     draw,
     endDraw,
+    findTextAt,
+    removeAction,
+    addTextAction,
     undo,
     redo,
     clearAll,

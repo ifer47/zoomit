@@ -1,13 +1,38 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, nextTick } from 'vue'
-import { useDrawing, type Tool, type Point } from '../composables/useDrawing'
+import { ref, onMounted, onUnmounted, nextTick, computed } from 'vue'
+import { useDrawing, type Tool, type Point, type DrawAction } from '../composables/useDrawing'
 import SettingsPanel from './SettingsPanel.vue'
+import TextBox from './TextBox.vue'
+import Icon from './Icons.vue'
 
 const canvasRef = ref<HTMLCanvasElement | null>(null)
 const containerRef = ref<HTMLDivElement | null>(null)
+const textBoxRef = ref<InstanceType<typeof TextBox> | null>(null)
 const active = ref(false)
 const showSettings = ref(false)
 const mousePos = ref({ x: 0, y: 0 })
+const textBoxPos = ref<{ x: number; y: number } | null>(null)
+const toolTip = ref('')
+let toolTipTimer: ReturnType<typeof setTimeout> | null = null
+
+const toolLabelMap: Record<Tool, string> = {
+  pen: '画笔',
+  highlighter: '荧光笔',
+  arrow: '箭头',
+  rect: '矩形',
+  ellipse: '椭圆',
+  line: '直线',
+  eraser: '橡皮擦',
+  text: '文字',
+}
+const toolTipTool = ref<Tool | null>(null)
+
+function showToolTip(tool: Tool) {
+  toolTip.value = toolLabelMap[tool] || tool
+  toolTipTool.value = tool
+  if (toolTipTimer) clearTimeout(toolTipTimer)
+  toolTipTimer = setTimeout(() => { toolTip.value = ''; toolTipTool.value = null }, 1200)
+}
 
 const {
   currentTool,
@@ -17,11 +42,21 @@ const {
   startDraw,
   draw,
   endDraw,
+  addTextAction,
+  findTextAt,
+  removeAction,
   undo,
   redo,
   clearAll,
   redrawAll,
 } = useDrawing(canvasRef)
+
+const textFontSize = computed(() => Math.max(16, lineWidth.value * 6))
+
+const activeTextBoxColor = ref('#FF0000')
+const activeTextBoxFontSize = ref(24)
+const activeTextBoxInitialText = ref('')
+const editingOriginalAction = ref<DrawAction | null>(null)
 
 function resizeCanvas() {
   const canvas = canvasRef.value
@@ -45,9 +80,69 @@ function getPoint(e: MouseEvent): Point {
 
 let toolBeforeModifier: string | null = null
 
+function commitCurrentTextBox(cancel = false) {
+  if (textBoxRef.value && textBoxPos.value) {
+    if (cancel && editingOriginalAction.value) {
+      // 如果是取消编辑且有原文本，恢复原文本
+      const a = editingOriginalAction.value
+      addTextAction(a.text!, a.points[0].x, a.points[0].y, 0, a.fontSize!, a.color)
+    } else if (!cancel) {
+      const text = textBoxRef.value.getText()
+      const actualFs = textBoxRef.value.getFontSize()
+      if (text.trim()) {
+        addTextAction(text, textBoxPos.value.x, textBoxPos.value.y, 0, actualFs, activeTextBoxColor.value)
+      }
+    }
+    textBoxPos.value = null
+    editingOriginalAction.value = null
+  }
+}
+
 function onMouseDown(e: MouseEvent) {
   if (e.button !== 0) return
   if (showSettings.value) return
+
+  if (currentTool.value === 'text') {
+    e.preventDefault()
+    const pos = { x: e.clientX, y: e.clientY }
+
+    const clickedTextInfo = findTextAt(pos)
+    
+    if (textBoxPos.value) {
+      // 提交当前正在编辑的文本
+      commitCurrentTextBox()
+    }
+
+    if (clickedTextInfo) {
+      // 点击了已有的文本，进入编辑模式
+      const { action, index } = clickedTextInfo
+      editingOriginalAction.value = action
+      removeAction(index)
+      
+      activeTextBoxColor.value = action.color
+      activeTextBoxFontSize.value = action.fontSize ?? 24
+      activeTextBoxInitialText.value = action.text ?? ''
+      
+      nextTick(() => {
+        textBoxPos.value = { x: action.points[0].x, y: action.points[0].y }
+      })
+      return
+    }
+
+    // 点击空白处，新建文本
+    activeTextBoxColor.value = currentColor.value
+    activeTextBoxFontSize.value = textFontSize.value
+    activeTextBoxInitialText.value = ''
+    nextTick(() => {
+      textBoxPos.value = pos
+    })
+    return
+  }
+
+  if (textBoxPos.value) {
+    commitCurrentTextBox()
+    return
+  }
 
   if (e.ctrlKey && e.shiftKey) {
     toolBeforeModifier = currentTool.value
@@ -76,8 +171,22 @@ function onMouseUp() {
   }
 }
 
+function onTextCommit() {
+  commitCurrentTextBox(false)
+}
+
+function onTextCancel() {
+  commitCurrentTextBox(true)
+}
+
 function onKeyDown(e: KeyboardEvent) {
   if (!active.value) return
+  if (textBoxPos.value) {
+    if (e.key === 'Escape') {
+      commitCurrentTextBox(true)
+    }
+    return
+  }
 
   if (e.key === ' ') {
     e.preventDefault()
@@ -85,9 +194,11 @@ function onKeyDown(e: KeyboardEvent) {
     return
   }
 
-  if (e.key >= '1' && e.key <= '7') {
-    const toolMap: Tool[] = ['pen', 'highlighter', 'arrow', 'rect', 'ellipse', 'line', 'eraser']
-    currentTool.value = toolMap[parseInt(e.key) - 1]
+  if (e.key >= '1' && e.key <= '8') {
+    const toolMap: Tool[] = ['pen', 'highlighter', 'arrow', 'rect', 'ellipse', 'line', 'eraser', 'text']
+    const tool = toolMap[parseInt(e.key) - 1]
+    currentTool.value = tool
+    showToolTip(tool)
     showSettings.value = false
     return
   }
@@ -109,6 +220,7 @@ function onKeyDown(e: KeyboardEvent) {
 
 function getCursorStyle(): string {
   if (currentTool.value === 'eraser') return 'cell'
+  if (currentTool.value === 'text') return 'text'
   return 'crosshair'
 }
 
@@ -121,6 +233,7 @@ onMounted(() => {
     window.electronAPI.onToggleDrawing((isActive: boolean) => {
       active.value = isActive
       showSettings.value = false
+      textBoxPos.value = null
       clearAll()
       if (isActive) {
         nextTick(() => resizeCanvas())
@@ -139,7 +252,9 @@ onUnmounted(() => {
 })
 
 function exitDrawing() {
+  commitCurrentTextBox()
   showSettings.value = false
+  textBoxPos.value = null
   if (window.electronAPI) {
     window.electronAPI.exitDrawing()
   }
@@ -161,6 +276,25 @@ function exitDrawing() {
       @mouseup="onMouseUp"
       @mouseleave="onMouseUp"
     />
+
+    <TextBox
+      v-if="active && textBoxPos"
+      ref="textBoxRef"
+      :x="textBoxPos.x"
+      :y="textBoxPos.y"
+      :color="activeTextBoxColor"
+      :font-size="activeTextBoxFontSize"
+      :initial-text="activeTextBoxInitialText"
+      @commit="onTextCommit"
+      @cancel="onTextCancel"
+    />
+
+    <Transition name="tooltip-fade">
+      <div v-if="active && toolTip" class="tool-tooltip">
+        <Icon v-if="toolTipTool" :name="toolTipTool" :size="18" color="#fff" />
+        <span>{{ toolTip }}</span>
+      </div>
+    </Transition>
 
     <SettingsPanel
       v-if="active && showSettings"
@@ -198,5 +332,38 @@ function exitDrawing() {
   left: 0;
   width: 100%;
   height: 100%;
+}
+
+.tool-tooltip {
+  position: fixed;
+  bottom: 48px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 20px;
+  background: rgba(28, 28, 30, 0.88);
+  backdrop-filter: blur(12px);
+  border-radius: 10px;
+  color: #fff;
+  font-size: 15px;
+  font-family: system-ui, sans-serif;
+  letter-spacing: 0.5px;
+  pointer-events: none;
+  z-index: 100003;
+  white-space: nowrap;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
+}
+
+.tooltip-fade-enter-active {
+  transition: opacity 0.15s ease;
+}
+.tooltip-fade-leave-active {
+  transition: opacity 0.4s ease;
+}
+.tooltip-fade-enter-from,
+.tooltip-fade-leave-to {
+  opacity: 0;
 }
 </style>
