@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ref, onMounted, onUnmounted } from 'vue'
 import type { Tool } from '../composables/useDrawing'
 import Icon from './Icons.vue'
 
@@ -29,9 +30,8 @@ const tools: { id: Tool; icon: string; label: string; key: string }[] = [
 ]
 
 const colors = [
-  ['#FF3B30', '#FF6B35', '#FFCC02', '#34C759', '#00C7BE'],
-  ['#007AFF', '#5856D6', '#AF52DE', '#FF2D55', '#FFFFFF'],
-  ['#8E8E93', '#636366', '#3A3A3C', '#1C1C1E', '#000000'],
+  ['#FF3B30', '#FF6B35', '#FFCC02', '#34C759', '#007AFF', '#5856D6', '#FFFFFF'],
+  ['#AF52DE', '#FF2D55', '#00C7BE', '#8E8E93', '#636366', '#3A3A3C', '#000000'],
 ]
 
 const widths = [
@@ -42,23 +42,60 @@ const widths = [
   { value: 8, label: '极粗' },
 ]
 
-function getPanelStyle() {
-  const panelW = 264
-  const panelH = 340
+const panelW = 272
+const panelH = 380
+const panelLeft = ref(0)
+const panelTop = ref(0)
+const isDragging = ref(false)
+const dragOffset = ref({ x: 0, y: 0 })
+
+function initPosition() {
   let left = props.x - panelW / 2
   let top = props.y - panelH / 2
   left = Math.max(12, Math.min(left, window.innerWidth - panelW - 12))
   top = Math.max(12, Math.min(top, window.innerHeight - panelH - 12))
-  return { left: left + 'px', top: top + 'px' }
+  panelLeft.value = left
+  panelTop.value = top
 }
+
+function startDrag(e: MouseEvent) {
+  isDragging.value = true
+  dragOffset.value = {
+    x: e.clientX - panelLeft.value,
+    y: e.clientY - panelTop.value,
+  }
+  e.preventDefault()
+}
+
+function onDrag(e: MouseEvent) {
+  if (!isDragging.value) return
+  panelLeft.value = Math.max(0, Math.min(e.clientX - dragOffset.value.x, window.innerWidth - panelW))
+  panelTop.value = Math.max(0, Math.min(e.clientY - dragOffset.value.y, window.innerHeight - panelH))
+}
+
+function stopDrag() {
+  isDragging.value = false
+}
+
+onMounted(() => {
+  initPosition()
+  window.addEventListener('mousemove', onDrag)
+  window.addEventListener('mouseup', stopDrag)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('mousemove', onDrag)
+  window.removeEventListener('mouseup', stopDrag)
+})
 </script>
 
 <template>
   <div class="panel-backdrop" @mousedown.self="emit('close')">
-    <div class="panel" :style="getPanelStyle()" @mousedown.stop>
+    <div class="panel" :style="{ left: panelLeft + 'px', top: panelTop + 'px' }" @mousedown.stop>
+      <div class="drag-bar" @mousedown="startDrag" />
       <!-- 工具区 -->
-      <div class="section">
-        <div class="section-header">
+      <div class="section section-first">
+        <div class="section-header drag-handle" @mousedown="startDrag">
           <span class="section-title">工具</span>
           <span class="section-hint">按 1-8 切换</span>
         </div>
@@ -82,10 +119,6 @@ function getPanelStyle() {
       <div class="section">
         <div class="section-header">
           <span class="section-title">颜色</span>
-          <div
-            class="current-color-preview"
-            :style="{ backgroundColor: currentColor }"
-          />
         </div>
         <div class="color-grid">
           <div v-for="(row, ri) in colors" :key="ri" class="color-row">
@@ -94,27 +127,23 @@ function getPanelStyle() {
               :key="color"
               class="color-btn"
               :class="{ active: currentColor === color }"
-              :style="{ '--c': color }"
               @click="emit('selectColor', color); emit('close')"
             >
               <span class="color-swatch" :style="{ backgroundColor: color }" />
-              <span v-if="currentColor === color" class="color-check">
-                <Icon name="close" :size="10" :color="color === '#000000' || color === '#1C1C1E' || color === '#3A3A3C' ? '#fff' : '#000'" />
-              </span>
+              <span v-if="currentColor === color" class="color-check">✓</span>
             </button>
           </div>
         </div>
-        <div class="color-custom-row">
-          <label class="color-custom-btn">
-            <input
-              type="color"
-              class="color-custom-input"
-              :value="currentColor"
-              @input="emit('selectColor', ($event.target as HTMLInputElement).value)"
-            />
-            <span class="color-custom-label">自定义</span>
-          </label>
-        </div>
+        <label class="color-custom-btn">
+          <input
+            type="color"
+            class="color-custom-input"
+            :value="currentColor"
+            @input="emit('selectColor', ($event.target as HTMLInputElement).value)"
+          />
+          <span class="color-custom-swatch" :style="{ backgroundColor: currentColor }" />
+          <span class="color-custom-label">自定义颜色</span>
+        </label>
       </div>
 
       <!-- 线宽区 -->
@@ -132,14 +161,12 @@ function getPanelStyle() {
             @click="emit('updateLineWidth', w.value); emit('close')"
           >
             <span
-              class="width-indicator"
+              class="width-line"
               :style="{
-                width: w.value * 1.5 + 4 + 'px',
-                height: w.value * 1.5 + 4 + 'px',
+                height: Math.max(1.5, w.value * 1.2) + 'px',
                 backgroundColor: currentColor,
               }"
             />
-            <span class="width-label">{{ w.value }}px</span>
           </button>
         </div>
       </div>
@@ -147,13 +174,16 @@ function getPanelStyle() {
       <!-- 底部快捷键提示 -->
       <div class="shortcuts">
         <div class="shortcut-item">
-          <kbd>Ctrl</kbd>+拖动 <span class="shortcut-desc">矩形</span>
+          <span class="shortcut-keys"><kbd>Ctrl</kbd><span class="shortcut-sep">+</span>拖动</span>
+          <span class="shortcut-desc">矩形</span>
         </div>
         <div class="shortcut-item">
-          <kbd>Shift</kbd>+拖动 <span class="shortcut-desc">椭圆</span>
+          <span class="shortcut-keys"><kbd>Shift</kbd><span class="shortcut-sep">+</span>拖动</span>
+          <span class="shortcut-desc">椭圆</span>
         </div>
         <div class="shortcut-item">
-          <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+拖动 <span class="shortcut-desc">箭头</span>
+          <span class="shortcut-keys"><kbd>Ctrl</kbd><span class="shortcut-sep">+</span><kbd>Shift</kbd><span class="shortcut-sep">+</span>拖动</span>
+          <span class="shortcut-desc">箭头</span>
         </div>
       </div>
     </div>
@@ -172,25 +202,29 @@ function getPanelStyle() {
 
 .panel {
   position: absolute;
-  width: 264px;
-  background: rgba(28, 28, 30, 0.96);
-  backdrop-filter: blur(20px) saturate(180%);
-  border-radius: 14px;
+  width: 272px;
+  background: rgba(30, 30, 32, 0.94);
+  backdrop-filter: blur(24px) saturate(180%);
+  border-radius: 16px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   box-shadow:
-    0 24px 48px rgba(0, 0, 0, 0.4),
-    0 4px 16px rgba(0, 0, 0, 0.2),
-    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    0 24px 48px rgba(0, 0, 0, 0.45),
+    0 4px 16px rgba(0, 0, 0, 0.25),
+    inset 0 0.5px 0 rgba(255, 255, 255, 0.08);
   user-select: none;
   overflow: hidden;
 }
 
 .section {
-  padding: 12px 14px 8px;
+  padding: 10px 14px;
+}
+
+.section-first {
+  padding-top: 4px;
 }
 
 .section + .section {
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .section-header {
@@ -203,23 +237,24 @@ function getPanelStyle() {
 .section-title {
   font-size: 11px;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.5);
-  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.45);
   letter-spacing: 0.5px;
   font-family: system-ui, -apple-system, sans-serif;
 }
 
 .section-hint {
   font-size: 10px;
-  color: rgba(255, 255, 255, 0.25);
+  color: rgba(255, 255, 255, 0.2);
   font-family: system-ui, sans-serif;
 }
 
-.current-color-preview {
-  width: 14px;
-  height: 14px;
-  border-radius: 4px;
-  border: 1.5px solid rgba(255, 255, 255, 0.2);
+.drag-bar {
+  height: 10px;
+  cursor: default;
+}
+
+.drag-handle {
+  cursor: default;
 }
 
 /* ---- 工具 ---- */
@@ -238,7 +273,7 @@ function getPanelStyle() {
   border: none;
   border-radius: 10px;
   background: rgba(255, 255, 255, 0.04);
-  color: rgba(255, 255, 255, 0.75);
+  color: rgba(255, 255, 255, 0.7);
   cursor: pointer;
   position: relative;
   transition: all 0.15s ease;
@@ -250,9 +285,9 @@ function getPanelStyle() {
 }
 
 .tool-btn.active {
-  background: rgba(10, 132, 255, 0.35);
+  background: rgba(10, 132, 255, 0.3);
   color: #fff;
-  box-shadow: inset 0 0 0 1px rgba(10, 132, 255, 0.5);
+  box-shadow: inset 0 0 0 1px rgba(10, 132, 255, 0.45);
 }
 
 .tool-label {
@@ -266,7 +301,7 @@ function getPanelStyle() {
   top: 3px;
   right: 5px;
   font-size: 8px;
-  color: rgba(255, 255, 255, 0.2);
+  color: rgba(255, 255, 255, 0.18);
   font-family: system-ui, sans-serif;
 }
 
@@ -283,13 +318,12 @@ function getPanelStyle() {
 
 .color-row {
   display: flex;
-  gap: 6px;
-  justify-content: flex-start;
+  justify-content: space-between;
 }
 
 .color-btn {
-  width: 28px;
-  height: 28px;
+  width: 30px;
+  height: 30px;
   padding: 0;
   border: none;
   border-radius: 50%;
@@ -303,44 +337,49 @@ function getPanelStyle() {
 }
 
 .color-btn:hover {
-  transform: scale(1.15);
+  transform: scale(1.18);
 }
 
 .color-btn.active {
-  transform: scale(1.15);
+  transform: scale(1.18);
 }
 
 .color-swatch {
   width: 24px;
   height: 24px;
   border-radius: 50%;
-  border: 2px solid rgba(255, 255, 255, 0.12);
+  border: 2px solid rgba(255, 255, 255, 0.1);
   transition: border-color 0.12s;
 }
 
 .color-btn.active .color-swatch {
-  border-color: rgba(255, 255, 255, 0.8);
-  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.75);
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.12);
 }
 
 .color-check {
   position: absolute;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: #000;
+  text-shadow: 0 0 2px rgba(255, 255, 255, 0.5);
+  pointer-events: none;
 }
 
-.color-custom-row {
-  margin-top: 8px;
+.color-btn:nth-child(n+6) .color-check,
+.color-row:last-child .color-btn:nth-child(n+4) .color-check {
+  color: #fff;
+  text-shadow: 0 0 2px rgba(0, 0, 0, 0.5);
 }
 
 .color-custom-btn {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   cursor: pointer;
-  padding: 4px 10px 4px 4px;
+  padding: 6px 10px 6px 6px;
   border-radius: 8px;
+  margin-top: 6px;
   transition: background 0.12s;
 }
 
@@ -349,29 +388,29 @@ function getPanelStyle() {
 }
 
 .color-custom-input {
-  width: 20px;
-  height: 20px;
+  position: absolute;
+  width: 0;
+  height: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.color-custom-swatch {
+  width: 18px;
+  height: 18px;
   border-radius: 50%;
   border: 2px dashed rgba(255, 255, 255, 0.2);
-  cursor: pointer;
-  padding: 0;
-  background: none;
-  -webkit-appearance: none;
-  appearance: none;
+  transition: border-color 0.12s;
+  pointer-events: none;
 }
 
-.color-custom-input::-webkit-color-swatch-wrapper {
-  padding: 0;
-}
-
-.color-custom-input::-webkit-color-swatch {
-  border: none;
-  border-radius: 50%;
+.color-custom-btn:hover .color-custom-swatch {
+  border-color: rgba(255, 255, 255, 0.35);
 }
 
 .color-custom-label {
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.35);
+  color: rgba(255, 255, 255, 0.3);
   font-family: system-ui, sans-serif;
 }
 
@@ -384,10 +423,9 @@ function getPanelStyle() {
 .width-btn {
   flex: 1;
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 5px;
-  padding: 8px 4px 6px;
+  justify-content: center;
+  height: 32px;
   border: none;
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.04);
@@ -404,50 +442,51 @@ function getPanelStyle() {
   box-shadow: inset 0 0 0 1px rgba(10, 132, 255, 0.45);
 }
 
-.width-indicator {
-  display: block;
-  border-radius: 50%;
+.width-line {
+  width: 70%;
+  border-radius: 99px;
   transition: transform 0.12s;
 }
 
-.width-btn:hover .width-indicator {
-  transform: scale(1.15);
-}
-
-.width-label {
-  font-size: 9px;
-  color: rgba(255, 255, 255, 0.3);
-  font-family: system-ui, sans-serif;
-}
-
-.width-btn.active .width-label {
-  color: rgba(255, 255, 255, 0.6);
+.width-btn:hover .width-line {
+  transform: scaleX(1.1);
 }
 
 /* ---- 快捷键提示 ---- */
 .shortcuts {
   display: flex;
-  gap: 4px;
+  flex-direction: column;
+  gap: 3px;
   padding: 8px 14px 10px;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
-  flex-wrap: wrap;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .shortcut-item {
-  font-size: 10px;
-  color: rgba(255, 255, 255, 0.2);
-  font-family: system-ui, sans-serif;
   display: flex;
   align-items: center;
-  gap: 2px;
+  justify-content: space-between;
+  font-size: 10px;
+  font-family: system-ui, sans-serif;
+}
+
+.shortcut-keys {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  color: rgba(255, 255, 255, 0.25);
+}
+
+.shortcut-sep {
+  color: rgba(255, 255, 255, 0.12);
+  font-size: 9px;
 }
 
 .shortcut-item kbd {
   display: inline-block;
-  padding: 1px 4px;
+  padding: 1px 5px;
   border-radius: 3px;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   font-size: 9px;
   font-family: system-ui, sans-serif;
   color: rgba(255, 255, 255, 0.35);
@@ -455,7 +494,7 @@ function getPanelStyle() {
 }
 
 .shortcut-desc {
-  color: rgba(255, 255, 255, 0.3);
-  margin-right: 6px;
+  color: rgba(255, 255, 255, 0.2);
+  font-size: 10px;
 }
 </style>
