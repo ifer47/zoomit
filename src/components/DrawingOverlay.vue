@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, nextTick, computed, type Component } from 'vue'
+import { ref, shallowRef, onMounted, onUnmounted, nextTick, computed, type Component } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
 import { listen, type UnlistenFn } from '@tauri-apps/api/event'
 import { useDrawing, type Tool, type DrawAction } from '../composables/useDrawing'
@@ -110,6 +110,7 @@ const {
   redo,
   clearAll,
   redrawAll,
+  invalidate,
   destroy,
 } = useDrawing(canvasRef)
 
@@ -118,12 +119,12 @@ const textFontSize = computed(() => Math.max(16, lineWidth.value * 6))
 const activeTextBoxColor = ref('#FF0000')
 const activeTextBoxFontSize = ref(24)
 const activeTextBoxInitialText = ref('')
-const editingOriginalAction = ref<DrawAction | null>(null)
+const editingOriginalAction = shallowRef<DrawAction | null>(null)
 
-const hoveredActionInfo = ref<{ action: DrawAction, index: number } | null>(null)
+const hoveredActionInfo = shallowRef<{ action: DrawAction, index: number } | null>(null)
 const isMoving = ref(false)
-const moveStartPos = ref<{ x: number, y: number } | null>(null)
-const originalActionPoints = ref<{x: number, y: number}[]>([])
+const moveStartPos = shallowRef<{ x: number, y: number } | null>(null)
+const originalActionPoints = shallowRef<{x: number, y: number}[]>([])
 
 function resizeCanvas() {
   const canvas = canvasRef.value
@@ -243,8 +244,12 @@ function onPointerMove(e: PointerEvent) {
     const dx = e.clientX - moveStartPos.value.x
     const dy = e.clientY - moveStartPos.value.y
     const action = hoveredActionInfo.value.action
-    action.points = originalActionPoints.value.map(p => ({ x: p.x + dx, y: p.y + dy }))
-    redrawAll()
+    const origPoints = originalActionPoints.value
+    for (let i = 0; i < action.points.length; i++) {
+      action.points[i].x = origPoints[i].x + dx
+      action.points[i].y = origPoints[i].y + dy
+    }
+    invalidate()
     return
   }
 

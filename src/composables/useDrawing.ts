@@ -497,6 +497,7 @@ export function useDrawing(canvasRef: Ref<HTMLCanvasElement | null>) {
     redo,
     clearAll,
     redrawAll,
+    invalidate: invalidateCache,
     destroy,
   }
 }
