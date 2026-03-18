@@ -50,7 +50,7 @@ function needsWhiteCheck(ri: number, ci: number): boolean {
 }
 
 const panelW = 272
-const panelH = 380
+const panelH = 420
 const panelLeft = ref(0)
 const panelTop = ref(0)
 const isDragging = ref(false)
@@ -207,6 +207,20 @@ onUnmounted(() => {
 
       <!-- 底部快捷键提示 -->
       <div class="flex flex-col gap-[3px] pt-2 px-3.5 pb-2.5 border-t border-white/5">
+        <div class="flex items-center justify-between text-[10px] font-sans">
+          <span class="flex items-center gap-[3px] text-white/25">
+            <kbd class="inline-block px-[5px] py-px rounded-[3px] bg-white/6 border border-white/8 text-[9px] font-sans text-white/35 leading-[1.3]">Q</kbd>
+            /
+            <kbd class="inline-block px-[5px] py-px rounded-[3px] bg-white/6 border border-white/8 text-[9px] font-sans text-white/35 leading-[1.3]">E</kbd>
+          </span>
+          <span class="text-white/20 text-[10px]">切换颜色</span>
+        </div>
+        <div class="flex items-center justify-between text-[10px] font-sans">
+          <span class="flex items-center gap-[3px] text-white/25">
+            右键
+          </span>
+          <span class="text-white/20 text-[10px]">快速选色</span>
+        </div>
         <div class="flex items-center justify-between text-[10px] font-sans">
           <span class="flex items-center gap-[3px] text-white/25">
             <kbd class="inline-block px-[5px] py-px rounded-[3px] bg-white/6 border border-white/8 text-[9px] font-sans text-white/35 leading-[1.3]">Ctrl</kbd>
