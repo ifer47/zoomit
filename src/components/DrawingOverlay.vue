@@ -40,12 +40,57 @@ const toolLabelMap: Record<Tool, string> = {
   text: '文字',
 }
 const toolTipTool = ref<Tool | null>(null)
+const toolTipColor = ref<string | null>(null)
+
+const showQuickColors = ref(false)
+const quickColorsPos = ref({ x: 0, y: 0 })
+
+const quickColorList = [
+  '#FF3B30', '#FF6B35', '#FFCC02', '#34C759', '#007AFF', '#5856D6', '#FFFFFF',
+  '#AF52DE', '#FF2D55', '#00C7BE', '#8E8E93', '#636366', '#3A3A3C', '#000000',
+]
+
+const colorNameMap: Record<string, string> = {
+  '#FF3B30': '红色', '#FF6B35': '橙色', '#FFCC02': '黄色', '#34C759': '绿色',
+  '#007AFF': '蓝色', '#5856D6': '紫色', '#FFFFFF': '白色', '#AF52DE': '紫罗兰',
+  '#FF2D55': '粉红', '#00C7BE': '青色', '#8E8E93': '灰色', '#636366': '深灰',
+  '#3A3A3C': '炭灰', '#000000': '黑色',
+}
 
 function showToolTip(tool: Tool) {
   toolTip.value = toolLabelMap[tool] || tool
   toolTipTool.value = tool
+  toolTipColor.value = null
   if (toolTipTimer) clearTimeout(toolTipTimer)
-  toolTipTimer = setTimeout(() => { toolTip.value = ''; toolTipTool.value = null }, 1200)
+  toolTipTimer = setTimeout(() => { toolTip.value = ''; toolTipTool.value = null; toolTipColor.value = null }, 1200)
+}
+
+function showColorTip(color: string) {
+  toolTip.value = colorNameMap[color.toUpperCase()] ?? color
+  toolTipTool.value = null
+  toolTipColor.value = color
+  if (toolTipTimer) clearTimeout(toolTipTimer)
+  toolTipTimer = setTimeout(() => { toolTip.value = ''; toolTipTool.value = null; toolTipColor.value = null }, 1200)
+}
+
+function cycleColor(direction: number) {
+  const idx = quickColorList.indexOf(currentColor.value)
+  const newIdx = idx === -1 ? 0 : (idx + direction + quickColorList.length) % quickColorList.length
+  currentColor.value = quickColorList[newIdx]
+  showColorTip(currentColor.value)
+}
+
+function onContextMenu(e: MouseEvent) {
+  e.preventDefault()
+  if (!active.value || showSettings.value || textBoxPos.value || isDrawing.value) return
+  quickColorsPos.value = { x: e.clientX, y: e.clientY }
+  showQuickColors.value = true
+}
+
+function selectQuickColor(color: string) {
+  currentColor.value = color
+  showQuickColors.value = false
+  showColorTip(color)
 }
 
 const {
@@ -111,7 +156,7 @@ function commitCurrentTextBox(cancel = false) {
 
 function onMouseDown(e: MouseEvent) {
   if (e.button !== 0) return
-  if (showSettings.value) return
+  if (showSettings.value || showQuickColors.value) return
 
   if (currentTool.value === 'text') {
     e.preventDefault()
@@ -201,6 +246,14 @@ function onTextCancel() {
 
 function onKeyDown(e: KeyboardEvent) {
   if (!active.value) return
+
+  if (showQuickColors.value) {
+    if (e.key === 'Escape') showQuickColors.value = false
+    else if (e.key === 'q' || e.key === 'Q') cycleColor(-1)
+    else if (e.key === 'e' || e.key === 'E') cycleColor(1)
+    return
+  }
+
   if (textBoxPos.value) {
     if (e.key === 'Escape') {
       commitCurrentTextBox(true)
@@ -211,6 +264,15 @@ function onKeyDown(e: KeyboardEvent) {
   if (e.key === ' ') {
     e.preventDefault()
     showSettings.value = !showSettings.value
+    return
+  }
+
+  if (e.key === 'q' || e.key === 'Q') {
+    cycleColor(-1)
+    return
+  }
+  if (e.key === 'e' || e.key === 'E') {
+    cycleColor(1)
     return
   }
 
@@ -239,9 +301,42 @@ function onKeyDown(e: KeyboardEvent) {
 }
 
 const cursorStyle = computed(() => {
-  if (currentTool.value === 'eraser') return 'cell'
   if (currentTool.value === 'text') return 'text'
-  return 'crosshair'
+  if (showQuickColors.value || showSettings.value) return 'default'
+
+  const c = currentColor.value
+  if (currentTool.value === 'eraser') {
+    const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='32' height='32'>` +
+      `<circle cx='16' cy='16' r='14' fill='none' stroke='white' stroke-width='1.5' stroke-dasharray='3,2'/>` +
+      `<line x1='16' y1='12' x2='16' y2='20' stroke='white' stroke-width='1'/>` +
+      `<line x1='12' y1='16' x2='20' y2='16' stroke='white' stroke-width='1'/>` +
+      `</svg>`
+    return `url("data:image/svg+xml,${encodeURIComponent(svg)}") 16 16, crosshair`
+  }
+
+  const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='28' height='28'>` +
+    `<line x1='14' y1='2' x2='14' y2='10' stroke='black' stroke-opacity='0.4' stroke-width='3' stroke-linecap='round'/>` +
+    `<line x1='14' y1='18' x2='14' y2='26' stroke='black' stroke-opacity='0.4' stroke-width='3' stroke-linecap='round'/>` +
+    `<line x1='2' y1='14' x2='10' y2='14' stroke='black' stroke-opacity='0.4' stroke-width='3' stroke-linecap='round'/>` +
+    `<line x1='18' y1='14' x2='26' y2='14' stroke='black' stroke-opacity='0.4' stroke-width='3' stroke-linecap='round'/>` +
+    `<line x1='14' y1='2' x2='14' y2='10' stroke='${c}' stroke-width='1.5' stroke-linecap='round'/>` +
+    `<line x1='14' y1='18' x2='14' y2='26' stroke='${c}' stroke-width='1.5' stroke-linecap='round'/>` +
+    `<line x1='2' y1='14' x2='10' y2='14' stroke='${c}' stroke-width='1.5' stroke-linecap='round'/>` +
+    `<line x1='18' y1='14' x2='26' y2='14' stroke='${c}' stroke-width='1.5' stroke-linecap='round'/>` +
+    `<circle cx='14' cy='14' r='2.5' fill='black' fill-opacity='0.3'/>` +
+    `<circle cx='14' cy='14' r='2' fill='${c}'/>` +
+    `</svg>`
+  return `url("data:image/svg+xml,${encodeURIComponent(svg)}") 14 14, crosshair`
+})
+
+const quickColorsPanelStyle = computed(() => {
+  const pw = 260, ph = 100
+  let left = quickColorsPos.value.x - pw / 2
+  let top = quickColorsPos.value.y - ph - 12
+  left = Math.max(8, Math.min(left, window.innerWidth - pw - 8))
+  if (top < 8) top = quickColorsPos.value.y + 12
+  top = Math.max(8, Math.min(top, window.innerHeight - ph - 8))
+  return { left: left + 'px', top: top + 'px' }
 })
 
 onMounted(() => {
@@ -253,6 +348,7 @@ onMounted(() => {
     window.electronAPI.onToggleDrawing((isActive: boolean) => {
       active.value = isActive
       showSettings.value = false
+      showQuickColors.value = false
       textBoxPos.value = null
       clearAll()
       if (isActive) {
@@ -275,6 +371,7 @@ onUnmounted(() => {
 function exitDrawing() {
   commitCurrentTextBox()
   showSettings.value = false
+  showQuickColors.value = false
   textBoxPos.value = null
   if (window.electronAPI) {
     window.electronAPI.exitDrawing()
@@ -296,6 +393,7 @@ function exitDrawing() {
       @pointermove="onPointerMove"
       @pointerup="onMouseUp"
       @pointerleave="onMouseUp"
+      @contextmenu.prevent="onContextMenu"
     />
 
     <TextBox
@@ -315,8 +413,57 @@ function exitDrawing() {
         v-if="active && toolTip"
         class="fixed bottom-12 left-1/2 -translate-x-1/2 flex items-center gap-2 py-2 px-5 bg-[rgba(28,28,30,0.88)] backdrop-blur-md rounded-[10px] text-white text-[15px] font-sans tracking-[0.5px] pointer-events-none z-100003 whitespace-nowrap shadow-[0_2px_12px_rgba(0,0,0,0.3)]"
       >
-        <component v-if="toolTipTool" :is="toolIconMap[toolTipTool]" :size="18" color="#fff" />
+        <span
+          v-if="toolTipColor"
+          class="w-4 h-4 rounded-full border border-white/20 shrink-0"
+          :style="{ backgroundColor: toolTipColor }"
+        />
+        <component v-else-if="toolTipTool" :is="toolIconMap[toolTipTool]" :size="18" color="#fff" />
         <span>{{ toolTip }}</span>
+      </div>
+    </Transition>
+
+    <!-- Quick Color Palette (right-click) -->
+    <Transition name="quick-colors">
+      <div
+        v-if="active && showQuickColors"
+        class="fixed inset-0 z-100002"
+        @mousedown.self="showQuickColors = false"
+        @contextmenu.prevent="showQuickColors = false"
+      >
+        <div
+          class="absolute bg-[rgba(30,30,32,0.92)] backdrop-blur-xl rounded-xl border border-white/8 shadow-[0_8px_32px_rgba(0,0,0,0.4)] p-2.5 select-none"
+          :style="quickColorsPanelStyle"
+          @mousedown.stop
+        >
+          <div class="grid grid-cols-7 gap-1.5">
+            <button
+              v-for="color in quickColorList"
+              :key="color"
+              class="w-7 h-7 p-0 border-none rounded-full cursor-pointer relative flex items-center justify-center transition-transform duration-100"
+              :class="currentColor === color ? 'scale-[1.2]' : 'hover:scale-[1.15]'"
+              @click="selectQuickColor(color)"
+            >
+              <span
+                class="w-[22px] h-[22px] rounded-full border-[1.5px] transition-[border-color] duration-100"
+                :class="currentColor === color
+                  ? 'border-white/70 shadow-[0_0_0_2px_rgba(255,255,255,0.1)]'
+                  : 'border-white/10'"
+                :style="{ backgroundColor: color }"
+              />
+              <span
+                v-if="currentColor === color"
+                class="absolute text-[10px] font-bold pointer-events-none"
+                :class="['#FFFFFF','#FFCC02','#8E8E93'].includes(color)
+                  ? 'text-black/70'
+                  : 'text-white [text-shadow:0_0_2px_rgba(0,0,0,0.5)]'"
+              >✓</span>
+            </button>
+          </div>
+          <div class="flex items-center justify-center gap-3 mt-1.5 pt-1.5 border-t border-white/5">
+            <span class="text-[9px] text-white/25 font-sans">Q ← 切换 → E</span>
+          </div>
+        </div>
       </div>
     </Transition>
 
@@ -328,7 +475,7 @@ function exitDrawing() {
       :x="mousePos.x"
       :y="mousePos.y"
       @select-tool="(t: Tool) => { currentTool = t }"
-      @select-color="(c: string) => { currentColor = c }"
+      @select-color="(c: string) => { currentColor = c; showColorTip(c) }"
       @update-line-width="(w: number) => { lineWidth = w }"
       @close="showSettings = false"
     />
@@ -345,5 +492,20 @@ function exitDrawing() {
 .tooltip-fade-enter-from,
 .tooltip-fade-leave-to {
   opacity: 0;
+}
+
+.quick-colors-enter-active {
+  transition: opacity 0.12s ease, transform 0.12s cubic-bezier(0.2, 0, 0.13, 1.5);
+}
+.quick-colors-leave-active {
+  transition: opacity 0.1s ease, transform 0.1s ease;
+}
+.quick-colors-enter-from {
+  opacity: 0;
+  transform: scale(0.9);
+}
+.quick-colors-leave-to {
+  opacity: 0;
+  transform: scale(0.95);
 }
 </style>
