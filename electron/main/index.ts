@@ -66,6 +66,21 @@ function createOverlayWindow() {
   overlayWin.setIgnoreMouseEvents(true)
   overlayWin.hide()
 
+  let keyboardBlur = false
+  overlayWin.webContents.on('before-input-event', (_event, input) => {
+    if (input.type === 'keyDown' && (input.key === 'Meta' || input.key === 'Alt')) {
+      keyboardBlur = true
+      setTimeout(() => { keyboardBlur = false }, 500)
+    }
+  })
+
+  overlayWin.on('blur', () => {
+    if (isDrawing && keyboardBlur) {
+      keyboardBlur = false
+      toggleDrawing()
+    }
+  })
+
   overlayWin.on('closed', () => {
     overlayWin = null
   })
@@ -77,9 +92,12 @@ function toggleDrawing() {
   isDrawing = !isDrawing
 
   if (isDrawing) {
+    const { bounds } = screen.getPrimaryDisplay()
+    overlayWin.setBounds(bounds)
     overlayWin.webContents.send('clear-drawing')
     overlayWin.show()
     overlayWin.setIgnoreMouseEvents(false)
+    overlayWin.setAlwaysOnTop(true, 'screen-saver')
     overlayWin.focus()
     overlayWin.webContents.send('toggle-drawing', true)
   } else {
