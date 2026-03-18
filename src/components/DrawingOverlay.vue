@@ -285,8 +285,8 @@ function exitDrawing() {
 <template>
   <div
     ref="containerRef"
-    class="fixed top-0 left-0 w-screen h-screen pointer-events-none z-[99999]"
-    :class="{ 'pointer-events-auto': active }"
+    class="fixed top-0 left-0 w-screen h-screen z-99999"
+    :class="active ? 'pointer-events-auto' : 'pointer-events-none'"
   >
     <canvas
       ref="canvasRef"
@@ -313,7 +313,7 @@ function exitDrawing() {
     <Transition name="tooltip-fade">
       <div
         v-if="active && toolTip"
-        class="fixed bottom-12 left-1/2 -translate-x-1/2 flex items-center gap-2 py-2 px-5 bg-[rgba(28,28,30,0.88)] backdrop-blur-[12px] rounded-[10px] text-white text-[15px] font-sans tracking-[0.5px] pointer-events-none z-[100003] whitespace-nowrap shadow-[0_2px_12px_rgba(0,0,0,0.3)]"
+        class="fixed bottom-12 left-1/2 -translate-x-1/2 flex items-center gap-2 py-2 px-5 bg-[rgba(28,28,30,0.88)] backdrop-blur-md rounded-[10px] text-white text-[15px] font-sans tracking-[0.5px] pointer-events-none z-100003 whitespace-nowrap shadow-[0_2px_12px_rgba(0,0,0,0.3)]"
       >
         <component v-if="toolTipTool" :is="toolIconMap[toolTipTool]" :size="18" color="#fff" />
         <span>{{ toolTip }}</span>

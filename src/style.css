@@ -1,6 +1,9 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+
+@theme {
+  --color-accent: rgb(10, 132, 255);
+  --font-text: "Microsoft YaHei", "PingFang SC", system-ui, sans-serif;
+}
 
 @layer base {
   html, body {
