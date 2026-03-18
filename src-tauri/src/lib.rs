@@ -74,8 +74,10 @@ fn setup_overlay_size(app: &AppHandle) {
         if let Some(monitor) = app.primary_monitor().ok().flatten() {
             let size = monitor.size();
             let pos = monitor.position();
+            // Subtract 1 pixel from height to prevent Windows from treating it as a
+            // fullscreen exclusive app, which causes the taskbar to lose its Mica/transparency effect.
             window
-                .set_size(tauri::PhysicalSize::new(size.width, size.height))
+                .set_size(tauri::PhysicalSize::new(size.width, size.height.saturating_sub(1)))
                 .ok();
             window
                 .set_position(tauri::PhysicalPosition::new(pos.x, pos.y))
