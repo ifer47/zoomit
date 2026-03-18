@@ -56,7 +56,7 @@ npm run build
 | <kbd>5</kbd> | ○ 椭圆 | 椭圆边框 |
 | <kbd>6</kbd> | ╱ 直线 | 直线段 |
 | <kbd>7</kbd> | ◎ 橡皮擦 | 擦除标注内容 |
-| <kbd>8</kbd> | 𝐓 文字 | 点击放置文字，滚轮调整字号，<kbd>Ctrl</kbd> + <kbd>Enter</kbd> 确认 |
+| <kbd>T</kbd> | 𝐓 文字 | 点击放置文字，滚轮调整字号，<kbd>Ctrl</kbd> + <kbd>Enter</kbd> 确认 |
 
 ### 标注模式 — 颜色切换
 
@@ -92,8 +92,8 @@ npm run build
 
 | 技术 | 用途 |
 | :--- | :--- |
-| **Electron** | 桌面应用框架 — 全局快捷键、透明置顶窗口、系统托盘 |
-| **Vue3** | 渲染层 UI 框架 |
+| **Tauri v2** | 桌面应用框架 — Rust 后端、系统托盘、全局快捷键、透明置顶窗口 |
+| **Vue 3** | 渲染层 UI 框架 |
 | **Vite** | 极速构建与热更新 |
 | **TypeScript** | 完整类型支持 |
 | **Canvas API** | 高性能绘图引擎 |
@@ -102,9 +102,10 @@ npm run build
 
 ```
 markon/
-├── electron/
-│   ├── main/index.ts            # 主进程 — 窗口管理、快捷键、托盘
-│   └── preload/index.ts         # 预加载 — IPC 通信桥接
+├── src-tauri/
+│   ├── src/
+│   │   └── lib.rs               # Rust 后端 — 窗口管理、快捷键、托盘
+│   └── tauri.conf.json          # Tauri 配置文件
 │
 ├── src/
 │   ├── components/
@@ -115,14 +116,13 @@ markon/
 │   ├── composables/
 │   │   └── useDrawing.ts        # 绘图引擎（画笔、形状、文字、撤销重做）
 │   ├── types/
-│   │   └── electron.d.ts        # TypeScript 类型声明
+│   │   └── app.d.ts             # TypeScript 类型声明
 │   ├── App.vue                  # 根组件
 │   ├── main.ts                  # 渲染进程入口
 │   └── style.css                # 全局样式
 │
 ├── index.html                   # HTML 入口
 ├── vite.config.ts               # Vite 配置
-├── electron-builder.json5       # 打包配置
 └── package.json
 ```
 

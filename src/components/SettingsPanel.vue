@@ -29,7 +29,7 @@ const tools: { id: Tool; icon: Component; label: string; key: string }[] = [
   { id: 'ellipse', icon: Circle, label: '椭圆', key: '5' },
   { id: 'line', icon: Minus, label: '直线', key: '6' },
   { id: 'eraser', icon: Eraser, label: '橡皮擦', key: '7' },
-  { id: 'text', icon: Type, label: '文字', key: '8' },
+  { id: 'text', icon: Type, label: '文字', key: 'T' },
 ]
 
 const colors = [
@@ -114,7 +114,7 @@ onUnmounted(() => {
       <div class="px-3.5 pt-1 pb-2.5">
         <div class="flex items-center justify-between mb-2 cursor-default" @mousedown="startDrag">
           <span class="text-[11px] font-semibold text-white/45 tracking-[0.5px] font-sans">工具</span>
-          <span class="text-[10px] text-white/20 font-sans">按 1-8 切换</span>
+          <span class="text-[10px] text-white/20 font-sans">按 1-7 / T 切换</span>
         </div>
         <div class="grid grid-cols-4 gap-1">
           <button

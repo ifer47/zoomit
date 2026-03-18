@@ -81,11 +81,11 @@ defineExpose({ commitText, getText, getFontSize })
     class="fixed z-100002 px-0.5 py-0 border-none bg-transparent outline-none resize-none font-text overflow-hidden whitespace-pre min-w-[4px] max-w-[80vw] placeholder:text-white/25"
     :style="{
       left: x + 'px',
-      top: (y - fs * 1.3 / 2) + 'px',
+      top: (y - Math.round(fs * 1.3) / 2) + 'px',
       color: color,
       fontSize: fs + 'px',
-      lineHeight: '1.3',
-      minHeight: (fs * 1.3) + 'px',
+      lineHeight: Math.round(fs * 1.3) + 'px',
+      minHeight: Math.round(fs * 1.3) + 'px',
       caretColor: color,
     }"
     placeholder="输入文字..."

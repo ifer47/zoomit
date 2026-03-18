@@ -220,13 +220,15 @@ function onPointerMove(e: PointerEvent) {
   mousePos.value = { x: e.clientX, y: e.clientY }
   if (!isDrawing.value) return
 
+  const isPerfect = e.altKey
+
   const coalesced = e.getCoalescedEvents?.()
   if (coalesced && coalesced.length > 0) {
     for (const ce of coalesced) {
-      draw({ x: ce.clientX, y: ce.clientY })
+      draw({ x: ce.clientX, y: ce.clientY }, isPerfect)
     }
   } else {
-    draw({ x: e.clientX, y: e.clientY })
+    draw({ x: e.clientX, y: e.clientY }, isPerfect)
   }
 }
 
@@ -248,6 +250,11 @@ function onTextCancel() {
 
 function onKeyDown(e: KeyboardEvent) {
   if (!active.value) return
+
+  // 屏蔽单独按下 Alt 键触发的系统菜单焦点（会导致光标变成默认箭头）
+  if (e.key === 'Alt') {
+    e.preventDefault()
+  }
 
   if (showQuickColors.value) {
     if (e.key === 'Escape') showQuickColors.value = false
@@ -284,7 +291,14 @@ function onKeyDown(e: KeyboardEvent) {
     return
   }
 
-  if (e.key >= '1' && e.key <= '8') {
+  if (e.key === 't' || e.key === 'T') {
+    currentTool.value = 'text'
+    showToolTip('text')
+    showSettings.value = false
+    return
+  }
+
+  if (e.key >= '1' && e.key <= '7') {
     const toolMap: Tool[] = ['pen', 'highlighter', 'arrow', 'rect', 'ellipse', 'line', 'eraser', 'text']
     const tool = toolMap[parseInt(e.key) - 1]
     currentTool.value = tool
@@ -349,10 +363,17 @@ const quickColorsPanelStyle = computed(() => {
 
 const unlisteners: UnlistenFn[] = []
 
+function onKeyUp(e: KeyboardEvent) {
+  if (e.key === 'Alt') {
+    e.preventDefault()
+  }
+}
+
 onMounted(async () => {
   resizeCanvas()
   window.addEventListener('resize', resizeCanvas)
   window.addEventListener('keydown', onKeyDown)
+  window.addEventListener('keyup', onKeyUp)
 
   unlisteners.push(
     await listen<boolean>('toggle-drawing', (event) => {
@@ -379,6 +400,7 @@ onMounted(async () => {
 onUnmounted(() => {
   window.removeEventListener('resize', resizeCanvas)
   window.removeEventListener('keydown', onKeyDown)
+  window.removeEventListener('keyup', onKeyUp)
   unlisteners.forEach((fn) => fn())
   destroy()
 })

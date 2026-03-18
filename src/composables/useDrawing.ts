@@ -140,7 +140,7 @@ export function useDrawing(canvasRef: Ref<HTMLCanvasElement | null>) {
     }
   }
 
-  function draw(point: Point) {
+  function draw(point: Point, isPerfect = false) {
     if (!isDrawing.value) return
     const action = currentAction.value
     if (!action) return
@@ -155,10 +155,22 @@ export function useDrawing(canvasRef: Ref<HTMLCanvasElement | null>) {
       if (dx * dx + dy * dy < MIN_DIST_SQ) return
       pts.push(point)
     } else {
+      let finalPoint = point
+      if (isPerfect && pts.length > 0 && (action.tool === 'rect' || action.tool === 'ellipse')) {
+        const start = pts[0]
+        const dx = point.x - start.x
+        const dy = point.y - start.y
+        const maxDist = Math.max(Math.abs(dx), Math.abs(dy))
+        finalPoint = {
+          x: start.x + (dx < 0 ? -maxDist : maxDist),
+          y: start.y + (dy < 0 ? -maxDist : maxDist)
+        }
+      }
+
       if (pts.length === 1) {
-        pts.push(point)
+        pts.push(finalPoint)
       } else {
-        pts[1] = point
+        pts[1] = finalPoint
       }
     }
 
@@ -201,17 +213,19 @@ export function useDrawing(canvasRef: Ref<HTMLCanvasElement | null>) {
       ctx.font = `${fs}px "Microsoft YaHei", "PingFang SC", system-ui, sans-serif`
       ctx.globalAlpha = 1
       ctx.fillStyle = action.color
-      ctx.textBaseline = 'top'
+      ctx.textBaseline = 'alphabetic'
       const lines = (action.text ?? '').split('\n')
       // HTML textarea 的 padding 为 0 2px，所以 x 偏移 2px
       const x = action.points[0].x + 2
-      // DOM 中 textarea 的 top 为 y - fs * 1.3 / 2 = y - fs * 0.65
-      // 文本在 1.3 行高中垂直居中，理论顶部是 y - fs * 0.5。
-      // 对于中文字体（如微软雅黑），字体的实际渲染基线比理论居中位置更靠下。
-      // 经过比例换算，补偿值约为字号的 10%~12%，这里使用 fs * 0.12 向下补偿，确保 Canvas 渲染不往上跳。
-      const startY = action.points[0].y - fs * 0.5 + fs * 0.12
+      // DOM 中 textarea 的 top 为 y - lh / 2，每行高度为 lh
+      // CSS 渲染时，文本在 line-height 内垂直居中。
+      // 居中时，基线 (baseline) 距离行垂直中心的偏移量：(ascender + descender) / 2
+      // 对于微软雅黑 (YaHei) 和苹方 (PingFang)，该偏移量约为字号的 0.398 倍
+      const lh = Math.round(fs * 1.3)
+      const baselineOffsetY = fs * 0.398
       for (let i = 0; i < lines.length; i++) {
-        ctx.fillText(lines[i], x, startY + i * fs * 1.3)
+        const lineCenterY = action.points[0].y + i * lh
+        ctx.fillText(lines[i], x, lineCenterY + baselineOffsetY)
       }
       ctx.restore()
       return
@@ -360,9 +374,10 @@ export function useDrawing(canvasRef: Ref<HTMLCanvasElement | null>) {
           const w = ctx.measureText(line).width
           if (w > maxWidth) maxWidth = w
         }
-        const h = lines.length * fs * 1.3
+        const lh = Math.round(fs * 1.3)
+        const h = lines.length * lh
         const boxX = action.points[0].x - 10
-        const boxY = action.points[0].y - fs * 0.65 - 10
+        const boxY = action.points[0].y - lh / 2 - 10
         if (p.x >= boxX && p.x <= boxX + maxWidth + 20 && p.y >= boxY && p.y <= boxY + h + 20) {
           return { action, index: i }
         }

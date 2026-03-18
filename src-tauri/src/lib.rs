@@ -331,13 +331,28 @@ pub fn run() {
 
             Ok(())
         })
-        .on_window_event(|window, event| {
-            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+        .on_window_event(|window, event| match event {
+            tauri::WindowEvent::CloseRequested { api, .. } => {
                 if window.label() == "overlay" {
                     api.prevent_close();
                     window.hide().ok();
                 }
             }
+            tauri::WindowEvent::Focused(false) => {
+                if window.label() == "overlay" {
+                    let app = window.app_handle();
+                    let state = app.state::<AppState>();
+                    let mut is_drawing = state.is_drawing.lock().unwrap();
+                    if *is_drawing {
+                        *is_drawing = false;
+                        drop(is_drawing);
+                        window.set_ignore_cursor_events(true).ok();
+                        app.emit("toggle-drawing", false).ok();
+                        window.hide().ok();
+                    }
+                }
+            }
+            _ => {}
         })
         .run(tauri::generate_context!())
         .expect("error while running MarkOn");
