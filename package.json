@@ -2,8 +2,16 @@
   "name": "markon",
   "version": "0.0.3",
   "description": "轻量级屏幕标注工具 - 按下快捷键，随时在桌面上自由绘画、标注",
-  "author": "",
+  "author": "ifer47 <361301399@qq.com>",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ifer47/markon.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ifer47/markon/issues"
+  },
+  "homepage": "https://github.com/ifer47/markon#readme",
   "private": true,
   "keywords": [
     "markon",
