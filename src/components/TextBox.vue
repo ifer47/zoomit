@@ -78,7 +78,7 @@ defineExpose({ commitText, getText, getFontSize })
 <template>
   <textarea
     ref="textareaRef"
-    class="inline-text"
+    class="fixed z-[100002] px-0.5 py-0 border-none bg-transparent outline-none resize-none font-text overflow-hidden min-w-[4px] max-w-[80vw] placeholder:text-white/25"
     :style="{
       left: x + 'px',
       top: (y - fs * 1.3 / 2) + 'px',
@@ -97,22 +97,3 @@ defineExpose({ commitText, getText, getFontSize })
   />
 </template>
 
-<style scoped>
-.inline-text {
-  position: fixed;
-  z-index: 100002;
-  padding: 0 2px;
-  border: none;
-  background: transparent;
-  outline: none;
-  resize: none;
-  font-family: "Microsoft YaHei", "PingFang SC", system-ui, sans-serif;
-  overflow: hidden;
-  min-width: 4px;
-  max-width: 80vw;
-}
-
-.inline-text::placeholder {
-  color: rgba(255, 255, 255, 0.25);
-}
-</style>

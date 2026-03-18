@@ -45,6 +45,10 @@ const widths = [
   { value: 8, label: '极粗' },
 ]
 
+function needsWhiteCheck(ri: number, ci: number): boolean {
+  return ci >= 5 || (ri === colors.length - 1 && ci >= 3)
+}
+
 const panelW = 272
 const panelH = 380
 const panelLeft = ref(0)
@@ -93,78 +97,105 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="panel-backdrop" @mousedown.self="emit('close')">
-    <div class="panel" :style="{ left: panelLeft + 'px', top: panelTop + 'px' }" @mousedown.stop>
-      <div class="drag-bar" @mousedown="startDrag" />
+  <div class="fixed top-0 left-0 w-screen h-screen z-[100001]" @mousedown.self="emit('close')">
+    <div
+      class="absolute w-[272px] bg-[rgba(30,30,32,0.94)] backdrop-blur-[24px] backdrop-saturate-[1.8] rounded-2xl border border-white/[0.08] shadow-[0_24px_48px_rgba(0,0,0,0.45),0_4px_16px_rgba(0,0,0,0.25),inset_0_0.5px_0_rgba(255,255,255,0.08)] select-none overflow-hidden"
+      :style="{ left: panelLeft + 'px', top: panelTop + 'px' }"
+      @mousedown.stop
+    >
+      <div class="h-2.5 cursor-default" @mousedown="startDrag" />
+
       <!-- 工具区 -->
-      <div class="section section-first">
-        <div class="section-header drag-handle" @mousedown="startDrag">
-          <span class="section-title">工具</span>
-          <span class="section-hint">按 1-8 切换</span>
+      <div class="px-3.5 pt-1 pb-2.5">
+        <div class="flex items-center justify-between mb-2 cursor-default" @mousedown="startDrag">
+          <span class="text-[11px] font-semibold text-white/[0.45] tracking-[0.5px] font-sans">工具</span>
+          <span class="text-[10px] text-white/20 font-sans">按 1-8 切换</span>
         </div>
-        <div class="tool-grid">
+        <div class="grid grid-cols-4 gap-1">
           <button
             v-for="tool in tools"
             :key="tool.id"
-            class="tool-btn"
-            :class="{ active: currentTool === tool.id }"
+            class="flex flex-col items-center gap-[3px] pt-2 px-1 pb-1.5 border-none rounded-[10px] cursor-pointer relative transition-all duration-150"
+            :class="currentTool === tool.id
+              ? 'bg-accent/30 text-white shadow-[inset_0_0_0_1px_rgba(10,132,255,0.45)]'
+              : 'bg-white/[0.04] text-white/70 hover:bg-white/10 hover:text-white'"
             :title="`${tool.label} (${tool.key})`"
             @click="emit('selectTool', tool.id); emit('close')"
           >
             <component :is="tool.icon" :size="18" />
-            <span class="tool-label">{{ tool.label }}</span>
-            <span class="tool-key">{{ tool.key }}</span>
+            <span class="text-[10px] leading-none font-sans">{{ tool.label }}</span>
+            <span
+              class="absolute top-[3px] right-[5px] text-[8px] font-sans"
+              :class="currentTool === tool.id ? 'text-white/40' : 'text-white/[0.18]'"
+            >{{ tool.key }}</span>
           </button>
         </div>
       </div>
 
       <!-- 颜色区 -->
-      <div class="section">
-        <div class="section-header">
-          <span class="section-title">颜色</span>
+      <div class="px-3.5 py-2.5 border-t border-white/5">
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-[11px] font-semibold text-white/[0.45] tracking-[0.5px] font-sans">颜色</span>
         </div>
-        <div class="color-grid">
-          <div v-for="(row, ri) in colors" :key="ri" class="color-row">
+        <div class="flex flex-col gap-1.5">
+          <div v-for="(row, ri) in colors" :key="ri" class="flex justify-between">
             <button
-              v-for="color in row"
+              v-for="(color, ci) in row"
               :key="color"
-              class="color-btn"
-              :class="{ active: currentColor === color }"
+              class="w-[30px] h-[30px] p-0 border-none rounded-full bg-transparent cursor-pointer relative flex items-center justify-center transition-transform duration-[120ms]"
+              :class="currentColor === color ? 'scale-[1.18]' : 'hover:scale-[1.18]'"
               @click="emit('selectColor', color); emit('close')"
             >
-              <span class="color-swatch" :style="{ backgroundColor: color }" />
-              <span v-if="currentColor === color" class="color-check">✓</span>
+              <span
+                class="w-6 h-6 rounded-full border-2 transition-[border-color] duration-[120ms]"
+                :class="currentColor === color
+                  ? 'border-white/75 shadow-[0_0_0_2px_rgba(255,255,255,0.12)]'
+                  : 'border-white/10'"
+                :style="{ backgroundColor: color }"
+              />
+              <span
+                v-if="currentColor === color"
+                class="absolute text-[11px] font-bold pointer-events-none"
+                :class="needsWhiteCheck(ri, ci)
+                  ? 'text-white [text-shadow:0_0_2px_rgba(0,0,0,0.5)]'
+                  : 'text-black [text-shadow:0_0_2px_rgba(255,255,255,0.5)]'"
+              >✓</span>
             </button>
           </div>
         </div>
-        <label class="color-custom-btn">
+        <label class="group inline-flex items-center gap-2 cursor-pointer py-1.5 pl-1.5 pr-2.5 rounded-lg mt-1.5 transition-[background] duration-[120ms] hover:bg-white/[0.06]">
           <input
             type="color"
-            class="color-custom-input"
+            class="absolute w-0 h-0 opacity-0 pointer-events-none"
             :value="currentColor"
             @input="emit('selectColor', ($event.target as HTMLInputElement).value)"
           />
-          <span class="color-custom-swatch" :style="{ backgroundColor: currentColor }" />
-          <span class="color-custom-label">自定义颜色</span>
+          <span
+            class="w-[18px] h-[18px] rounded-full border-2 border-dashed border-white/20 transition-[border-color] duration-[120ms] pointer-events-none group-hover:border-white/[0.35]"
+            :style="{ backgroundColor: currentColor }"
+          />
+          <span class="text-[11px] text-white/30 font-sans">自定义颜色</span>
         </label>
       </div>
 
       <!-- 线宽区 -->
-      <div class="section">
-        <div class="section-header">
-          <span class="section-title">线宽</span>
+      <div class="px-3.5 py-2.5 border-t border-white/5">
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-[11px] font-semibold text-white/[0.45] tracking-[0.5px] font-sans">线宽</span>
         </div>
-        <div class="width-row">
+        <div class="flex gap-1">
           <button
             v-for="w in widths"
             :key="w.value"
-            class="width-btn"
-            :class="{ active: lineWidth === w.value }"
+            class="group flex-1 flex items-center justify-center h-8 border-none rounded-lg cursor-pointer transition-all duration-[120ms]"
+            :class="lineWidth === w.value
+              ? 'bg-accent/30 shadow-[inset_0_0_0_1px_rgba(10,132,255,0.45)]'
+              : 'bg-white/[0.04] hover:bg-white/10'"
             :title="w.label"
             @click="emit('updateLineWidth', w.value); emit('close')"
           >
             <span
-              class="width-line"
+              class="w-[70%] rounded-full transition-transform duration-[120ms] group-hover:scale-x-110"
               :style="{
                 height: Math.max(1.5, w.value * 1.2) + 'px',
                 backgroundColor: currentColor,
@@ -175,329 +206,35 @@ onUnmounted(() => {
       </div>
 
       <!-- 底部快捷键提示 -->
-      <div class="shortcuts">
-        <div class="shortcut-item">
-          <span class="shortcut-keys"><kbd>Ctrl</kbd><span class="shortcut-sep">+</span>拖动</span>
-          <span class="shortcut-desc">矩形</span>
+      <div class="flex flex-col gap-[3px] pt-2 px-3.5 pb-2.5 border-t border-white/5">
+        <div class="flex items-center justify-between text-[10px] font-sans">
+          <span class="flex items-center gap-[3px] text-white/25">
+            <kbd class="inline-block px-[5px] py-px rounded-[3px] bg-white/[0.06] border border-white/[0.08] text-[9px] font-sans text-white/[0.35] leading-[1.3]">Ctrl</kbd>
+            <span class="text-white/[0.12] text-[9px]">+</span>
+            拖动
+          </span>
+          <span class="text-white/20 text-[10px]">矩形</span>
         </div>
-        <div class="shortcut-item">
-          <span class="shortcut-keys"><kbd>Shift</kbd><span class="shortcut-sep">+</span>拖动</span>
-          <span class="shortcut-desc">椭圆</span>
+        <div class="flex items-center justify-between text-[10px] font-sans">
+          <span class="flex items-center gap-[3px] text-white/25">
+            <kbd class="inline-block px-[5px] py-px rounded-[3px] bg-white/[0.06] border border-white/[0.08] text-[9px] font-sans text-white/[0.35] leading-[1.3]">Shift</kbd>
+            <span class="text-white/[0.12] text-[9px]">+</span>
+            拖动
+          </span>
+          <span class="text-white/20 text-[10px]">椭圆</span>
         </div>
-        <div class="shortcut-item">
-          <span class="shortcut-keys"><kbd>Ctrl</kbd><span class="shortcut-sep">+</span><kbd>Shift</kbd><span class="shortcut-sep">+</span>拖动</span>
-          <span class="shortcut-desc">箭头</span>
+        <div class="flex items-center justify-between text-[10px] font-sans">
+          <span class="flex items-center gap-[3px] text-white/25">
+            <kbd class="inline-block px-[5px] py-px rounded-[3px] bg-white/[0.06] border border-white/[0.08] text-[9px] font-sans text-white/[0.35] leading-[1.3]">Ctrl</kbd>
+            <span class="text-white/[0.12] text-[9px]">+</span>
+            <kbd class="inline-block px-[5px] py-px rounded-[3px] bg-white/[0.06] border border-white/[0.08] text-[9px] font-sans text-white/[0.35] leading-[1.3]">Shift</kbd>
+            <span class="text-white/[0.12] text-[9px]">+</span>
+            拖动
+          </span>
+          <span class="text-white/20 text-[10px]">箭头</span>
         </div>
       </div>
     </div>
   </div>
 </template>
 
-<style scoped>
-.panel-backdrop {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
-  z-index: 100001;
-}
-
-.panel {
-  position: absolute;
-  width: 272px;
-  background: rgba(30, 30, 32, 0.94);
-  backdrop-filter: blur(24px) saturate(180%);
-  border-radius: 16px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow:
-    0 24px 48px rgba(0, 0, 0, 0.45),
-    0 4px 16px rgba(0, 0, 0, 0.25),
-    inset 0 0.5px 0 rgba(255, 255, 255, 0.08);
-  user-select: none;
-  overflow: hidden;
-}
-
-.section {
-  padding: 10px 14px;
-}
-
-.section-first {
-  padding-top: 4px;
-}
-
-.section + .section {
-  border-top: 1px solid rgba(255, 255, 255, 0.05);
-}
-
-.section-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 8px;
-}
-
-.section-title {
-  font-size: 11px;
-  font-weight: 600;
-  color: rgba(255, 255, 255, 0.45);
-  letter-spacing: 0.5px;
-  font-family: system-ui, -apple-system, sans-serif;
-}
-
-.section-hint {
-  font-size: 10px;
-  color: rgba(255, 255, 255, 0.2);
-  font-family: system-ui, sans-serif;
-}
-
-.drag-bar {
-  height: 10px;
-  cursor: default;
-}
-
-.drag-handle {
-  cursor: default;
-}
-
-/* ---- 工具 ---- */
-.tool-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 4px;
-}
-
-.tool-btn {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 3px;
-  padding: 8px 4px 6px;
-  border: none;
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.04);
-  color: rgba(255, 255, 255, 0.7);
-  cursor: pointer;
-  position: relative;
-  transition: all 0.15s ease;
-}
-
-.tool-btn:hover {
-  background: rgba(255, 255, 255, 0.1);
-  color: #fff;
-}
-
-.tool-btn.active {
-  background: rgba(10, 132, 255, 0.3);
-  color: #fff;
-  box-shadow: inset 0 0 0 1px rgba(10, 132, 255, 0.45);
-}
-
-.tool-label {
-  font-size: 10px;
-  line-height: 1;
-  font-family: system-ui, sans-serif;
-}
-
-.tool-key {
-  position: absolute;
-  top: 3px;
-  right: 5px;
-  font-size: 8px;
-  color: rgba(255, 255, 255, 0.18);
-  font-family: system-ui, sans-serif;
-}
-
-.tool-btn.active .tool-key {
-  color: rgba(255, 255, 255, 0.4);
-}
-
-/* ---- 颜色 ---- */
-.color-grid {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.color-row {
-  display: flex;
-  justify-content: space-between;
-}
-
-.color-btn {
-  width: 30px;
-  height: 30px;
-  padding: 0;
-  border: none;
-  border-radius: 50%;
-  background: none;
-  cursor: pointer;
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: transform 0.12s ease;
-}
-
-.color-btn:hover {
-  transform: scale(1.18);
-}
-
-.color-btn.active {
-  transform: scale(1.18);
-}
-
-.color-swatch {
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  border: 2px solid rgba(255, 255, 255, 0.1);
-  transition: border-color 0.12s;
-}
-
-.color-btn.active .color-swatch {
-  border-color: rgba(255, 255, 255, 0.75);
-  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.12);
-}
-
-.color-check {
-  position: absolute;
-  font-size: 11px;
-  font-weight: 700;
-  color: #000;
-  text-shadow: 0 0 2px rgba(255, 255, 255, 0.5);
-  pointer-events: none;
-}
-
-.color-btn:nth-child(n+6) .color-check,
-.color-row:last-child .color-btn:nth-child(n+4) .color-check {
-  color: #fff;
-  text-shadow: 0 0 2px rgba(0, 0, 0, 0.5);
-}
-
-.color-custom-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  cursor: pointer;
-  padding: 6px 10px 6px 6px;
-  border-radius: 8px;
-  margin-top: 6px;
-  transition: background 0.12s;
-}
-
-.color-custom-btn:hover {
-  background: rgba(255, 255, 255, 0.06);
-}
-
-.color-custom-input {
-  position: absolute;
-  width: 0;
-  height: 0;
-  opacity: 0;
-  pointer-events: none;
-}
-
-.color-custom-swatch {
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  border: 2px dashed rgba(255, 255, 255, 0.2);
-  transition: border-color 0.12s;
-  pointer-events: none;
-}
-
-.color-custom-btn:hover .color-custom-swatch {
-  border-color: rgba(255, 255, 255, 0.35);
-}
-
-.color-custom-label {
-  font-size: 11px;
-  color: rgba(255, 255, 255, 0.3);
-  font-family: system-ui, sans-serif;
-}
-
-/* ---- 线宽 ---- */
-.width-row {
-  display: flex;
-  gap: 4px;
-}
-
-.width-btn {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 32px;
-  border: none;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.04);
-  cursor: pointer;
-  transition: all 0.12s ease;
-}
-
-.width-btn:hover {
-  background: rgba(255, 255, 255, 0.1);
-}
-
-.width-btn.active {
-  background: rgba(10, 132, 255, 0.3);
-  box-shadow: inset 0 0 0 1px rgba(10, 132, 255, 0.45);
-}
-
-.width-line {
-  width: 70%;
-  border-radius: 99px;
-  transition: transform 0.12s;
-}
-
-.width-btn:hover .width-line {
-  transform: scaleX(1.1);
-}
-
-/* ---- 快捷键提示 ---- */
-.shortcuts {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  padding: 8px 14px 10px;
-  border-top: 1px solid rgba(255, 255, 255, 0.05);
-}
-
-.shortcut-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  font-size: 10px;
-  font-family: system-ui, sans-serif;
-}
-
-.shortcut-keys {
-  display: flex;
-  align-items: center;
-  gap: 3px;
-  color: rgba(255, 255, 255, 0.25);
-}
-
-.shortcut-sep {
-  color: rgba(255, 255, 255, 0.12);
-  font-size: 9px;
-}
-
-.shortcut-item kbd {
-  display: inline-block;
-  padding: 1px 5px;
-  border-radius: 3px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  font-size: 9px;
-  font-family: system-ui, sans-serif;
-  color: rgba(255, 255, 255, 0.35);
-  line-height: 1.3;
-}
-
-.shortcut-desc {
-  color: rgba(255, 255, 255, 0.2);
-  font-size: 10px;
-}
-</style>
