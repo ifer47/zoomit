@@ -285,12 +285,12 @@ function exitDrawing() {
 <template>
   <div
     ref="containerRef"
-    class="drawing-overlay"
-    :class="{ active }"
+    class="fixed top-0 left-0 w-screen h-screen pointer-events-none z-[99999]"
+    :class="{ 'pointer-events-auto': active }"
   >
     <canvas
       ref="canvasRef"
-      class="drawing-canvas"
+      class="absolute top-0 left-0 w-full h-full touch-none"
       :style="{ cursor: cursorStyle }"
       @pointerdown="onMouseDown"
       @pointermove="onPointerMove"
@@ -311,7 +311,10 @@ function exitDrawing() {
     />
 
     <Transition name="tooltip-fade">
-      <div v-if="active && toolTip" class="tool-tooltip">
+      <div
+        v-if="active && toolTip"
+        class="fixed bottom-12 left-1/2 -translate-x-1/2 flex items-center gap-2 py-2 px-5 bg-[rgba(28,28,30,0.88)] backdrop-blur-[12px] rounded-[10px] text-white text-[15px] font-sans tracking-[0.5px] pointer-events-none z-[100003] whitespace-nowrap shadow-[0_2px_12px_rgba(0,0,0,0.3)]"
+      >
         <component v-if="toolTipTool" :is="toolIconMap[toolTipTool]" :size="18" color="#fff" />
         <span>{{ toolTip }}</span>
       </div>
@@ -333,51 +336,6 @@ function exitDrawing() {
 </template>
 
 <style scoped>
-.drawing-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
-  pointer-events: none;
-  z-index: 99999;
-}
-
-.drawing-overlay.active {
-  pointer-events: auto;
-}
-
-.drawing-canvas {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  touch-action: none;
-}
-
-.tool-tooltip {
-  position: fixed;
-  bottom: 48px;
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 20px;
-  background: rgba(28, 28, 30, 0.88);
-  backdrop-filter: blur(12px);
-  border-radius: 10px;
-  color: #fff;
-  font-size: 15px;
-  font-family: system-ui, sans-serif;
-  letter-spacing: 0.5px;
-  pointer-events: none;
-  z-index: 100003;
-  white-space: nowrap;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
-}
-
 .tooltip-fade-enter-active {
   transition: opacity 0.15s ease;
 }
