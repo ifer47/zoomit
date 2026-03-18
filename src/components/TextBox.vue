@@ -78,7 +78,7 @@ defineExpose({ commitText, getText, getFontSize })
 <template>
   <textarea
     ref="textareaRef"
-    class="fixed z-[100002] px-0.5 py-0 border-none bg-transparent outline-none resize-none font-text overflow-hidden min-w-[4px] max-w-[80vw] placeholder:text-white/25"
+    class="fixed z-100002 px-0.5 py-0 border-none bg-transparent outline-none resize-none font-text overflow-hidden whitespace-pre min-w-[4px] max-w-[80vw] placeholder:text-white/25"
     :style="{
       left: x + 'px',
       top: (y - fs * 1.3 / 2) + 'px',
