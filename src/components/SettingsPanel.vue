@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, type Component } from 'vue'
+import { ref, nextTick, onMounted, onUnmounted, type Component } from 'vue'
 import type { Tool } from '../composables/useDrawing'
 import {
   Pen, Highlighter, ArrowUpRight, Square, Circle,
@@ -50,19 +50,22 @@ function needsWhiteCheck(ri: number, ci: number): boolean {
 }
 
 const panelW = 272
-const panelH = 420
+const panelRef = ref<HTMLDivElement | null>(null)
 const panelLeft = ref(0)
 const panelTop = ref(0)
 const isDragging = ref(false)
 const dragOffset = ref({ x: 0, y: 0 })
 
 function initPosition() {
-  let left = props.x - panelW / 2
-  let top = props.y - panelH / 2
-  left = Math.max(12, Math.min(left, window.innerWidth - panelW - 12))
-  top = Math.max(12, Math.min(top, window.innerHeight - panelH - 12))
-  panelLeft.value = left
-  panelTop.value = top
+  nextTick(() => {
+    const panelH = panelRef.value?.offsetHeight ?? 400
+    let left = props.x - panelW / 2
+    let top = props.y - panelH / 2
+    left = Math.max(12, Math.min(left, window.innerWidth - panelW - 12))
+    top = Math.max(12, Math.min(top, window.innerHeight - panelH - 12))
+    panelLeft.value = left
+    panelTop.value = top
+  })
 }
 
 function startDrag(e: MouseEvent) {
@@ -76,6 +79,7 @@ function startDrag(e: MouseEvent) {
 
 function onDrag(e: MouseEvent) {
   if (!isDragging.value) return
+  const panelH = panelRef.value?.offsetHeight ?? 400
   panelLeft.value = Math.max(0, Math.min(e.clientX - dragOffset.value.x, window.innerWidth - panelW))
   panelTop.value = Math.max(0, Math.min(e.clientY - dragOffset.value.y, window.innerHeight - panelH))
 }
@@ -99,6 +103,7 @@ onUnmounted(() => {
 <template>
   <div class="fixed top-0 left-0 w-screen h-screen z-100001" @mousedown.self="emit('close')">
     <div
+      ref="panelRef"
       class="absolute w-[272px] bg-[rgba(30,30,32,0.94)] backdrop-blur-xl backdrop-saturate-[1.8] rounded-2xl border border-white/8 shadow-[0_24px_48px_rgba(0,0,0,0.45),0_4px_16px_rgba(0,0,0,0.25),inset_0_0.5px_0_rgba(255,255,255,0.08)] select-none overflow-hidden"
       :style="{ left: panelLeft + 'px', top: panelTop + 'px' }"
       @mousedown.stop
@@ -209,20 +214,6 @@ onUnmounted(() => {
       <div class="flex flex-col gap-[3px] pt-2 px-3.5 pb-2.5 border-t border-white/5">
         <div class="flex items-center justify-between text-[10px] font-sans">
           <span class="flex items-center gap-[3px] text-white/25">
-            <kbd class="inline-block px-[5px] py-px rounded-[3px] bg-white/6 border border-white/8 text-[9px] font-sans text-white/35 leading-[1.3]">Q</kbd>
-            /
-            <kbd class="inline-block px-[5px] py-px rounded-[3px] bg-white/6 border border-white/8 text-[9px] font-sans text-white/35 leading-[1.3]">E</kbd>
-          </span>
-          <span class="text-white/20 text-[10px]">切换颜色</span>
-        </div>
-        <div class="flex items-center justify-between text-[10px] font-sans">
-          <span class="flex items-center gap-[3px] text-white/25">
-            右键
-          </span>
-          <span class="text-white/20 text-[10px]">快速选色</span>
-        </div>
-        <div class="flex items-center justify-between text-[10px] font-sans">
-          <span class="flex items-center gap-[3px] text-white/25">
             <kbd class="inline-block px-[5px] py-px rounded-[3px] bg-white/6 border border-white/8 text-[9px] font-sans text-white/35 leading-[1.3]">Ctrl</kbd>
             <span class="text-white/12 text-[9px]">+</span>
             拖动
@@ -246,6 +237,16 @@ onUnmounted(() => {
             拖动
           </span>
           <span class="text-white/20 text-[10px]">箭头</span>
+        </div>
+        <div class="flex items-center justify-between text-[10px] font-sans">
+          <span class="flex items-center gap-[3px] text-white/25">
+            <kbd class="inline-block px-[5px] py-px rounded-[3px] bg-white/6 border border-white/8 text-[9px] font-sans text-white/35 leading-[1.3]">Q</kbd>
+            /
+            <kbd class="inline-block px-[5px] py-px rounded-[3px] bg-white/6 border border-white/8 text-[9px] font-sans text-white/35 leading-[1.3]">E</kbd>
+            <span class="text-white/12 text-[9px]">/</span>
+            右键
+          </span>
+          <span class="text-white/20 text-[10px]">切换颜色</span>
         </div>
       </div>
     </div>

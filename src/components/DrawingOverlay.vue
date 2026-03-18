@@ -251,6 +251,12 @@ function onKeyDown(e: KeyboardEvent) {
     if (e.key === 'Escape') showQuickColors.value = false
     else if (e.key === 'q' || e.key === 'Q') cycleColor(-1)
     else if (e.key === 'e' || e.key === 'E') cycleColor(1)
+    else if (e.key === ' ') {
+      e.preventDefault()
+      mousePos.value = { ...quickColorsPos.value }
+      showQuickColors.value = false
+      showSettings.value = !showSettings.value
+    }
     return
   }
 
