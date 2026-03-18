@@ -104,7 +104,7 @@ const {
   draw,
   endDraw,
   addTextAction,
-  findTextAt,
+  findActionAt,
   removeAction,
   undo,
   redo,
@@ -119,6 +119,11 @@ const activeTextBoxColor = ref('#FF0000')
 const activeTextBoxFontSize = ref(24)
 const activeTextBoxInitialText = ref('')
 const editingOriginalAction = ref<DrawAction | null>(null)
+
+const hoveredActionInfo = ref<{ action: DrawAction, index: number } | null>(null)
+const isMoving = ref(false)
+const moveStartPos = ref<{ x: number, y: number } | null>(null)
+const originalActionPoints = ref<{x: number, y: number}[]>([])
 
 function resizeCanvas() {
   const canvas = canvasRef.value
@@ -164,16 +169,16 @@ function onMouseDown(e: MouseEvent) {
     e.preventDefault()
     const pos = { x: e.clientX, y: e.clientY }
 
-    const clickedTextInfo = findTextAt(pos)
+    const clickedActionInfo = findActionAt(pos)
     
     if (textBoxPos.value) {
       // 提交当前正在编辑的文本
       commitCurrentTextBox()
     }
 
-    if (clickedTextInfo) {
+    if (clickedActionInfo && clickedActionInfo.action.tool === 'text') {
       // 点击了已有的文本，进入编辑模式
-      const { action, index } = clickedTextInfo
+      const { action, index } = clickedActionInfo
       editingOriginalAction.value = action
       removeAction(index)
       
@@ -202,6 +207,13 @@ function onMouseDown(e: MouseEvent) {
     return
   }
 
+  if (hoveredActionInfo.value) {
+    isMoving.value = true
+    moveStartPos.value = { x: e.clientX, y: e.clientY }
+    originalActionPoints.value = hoveredActionInfo.value.action.points.map(p => ({ ...p }))
+    return
+  }
+
   if (e.ctrlKey && e.shiftKey) {
     toolBeforeModifier = currentTool.value
     currentTool.value = 'arrow'
@@ -218,7 +230,24 @@ function onMouseDown(e: MouseEvent) {
 
 function onPointerMove(e: PointerEvent) {
   mousePos.value = { x: e.clientX, y: e.clientY }
-  if (!isDrawing.value) return
+
+  if (isMoving.value && moveStartPos.value && hoveredActionInfo.value) {
+    const dx = e.clientX - moveStartPos.value.x
+    const dy = e.clientY - moveStartPos.value.y
+    const action = hoveredActionInfo.value.action
+    action.points = originalActionPoints.value.map(p => ({ x: p.x + dx, y: p.y + dy }))
+    redrawAll()
+    return
+  }
+
+  if (!isDrawing.value) {
+    if (active.value && !showSettings.value && !showQuickColors.value && !textBoxPos.value && currentTool.value !== 'text') {
+      hoveredActionInfo.value = findActionAt(mousePos.value)
+    } else {
+      hoveredActionInfo.value = null
+    }
+    return
+  }
 
   const isPerfect = e.altKey
 
@@ -233,6 +262,14 @@ function onPointerMove(e: PointerEvent) {
 }
 
 function onMouseUp() {
+  if (isMoving.value) {
+    isMoving.value = false
+    moveStartPos.value = null
+    originalActionPoints.value = []
+    redrawAll()
+    return
+  }
+
   endDraw()
   if (toolBeforeModifier !== null) {
     currentTool.value = toolBeforeModifier as any
@@ -323,6 +360,7 @@ function onKeyDown(e: KeyboardEvent) {
 }
 
 const cursorStyle = computed(() => {
+  if (isMoving.value || (hoveredActionInfo.value && !isDrawing.value && currentTool.value !== 'text')) return 'move'
   if (currentTool.value === 'text') return 'text'
   if (showQuickColors.value || showSettings.value) return 'default'
 

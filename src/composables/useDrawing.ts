@@ -360,11 +360,25 @@ export function useDrawing(canvasRef: Ref<HTMLCanvasElement | null>) {
     }
   }
 
-  function findTextAt(p: Point): { action: DrawAction, index: number } | null {
+  function distancePointToSegment(p: Point, a: Point, b: Point): number {
+    const l2 = (a.x - b.x) ** 2 + (a.y - b.y) ** 2
+    if (l2 === 0) return Math.hypot(p.x - a.x, p.y - a.y)
+    let t = ((p.x - a.x) * (b.x - a.x) + (p.y - a.y) * (b.y - a.y)) / l2
+    t = Math.max(0, Math.min(1, t))
+    return Math.hypot(p.x - (a.x + t * (b.x - a.x)), p.y - (a.y + t * (b.y - a.y)))
+  }
+
+  function findActionAt(p: Point): { action: DrawAction, index: number } | null {
     const ctx = getCtx()
     if (!ctx) return null
+    
     for (let i = history.length - 1; i >= 0; i--) {
       const action = history[i]
+      const pts = action.points
+      if (pts.length === 0) continue
+
+      const threshold = Math.max(10, (action.lineWidth || 2) / 2 + 5)
+
       if (action.tool === 'text' && action.text) {
         const fs = action.fontSize ?? 24
         ctx.font = `${fs}px "Microsoft YaHei", "PingFang SC", system-ui, sans-serif`
@@ -376,11 +390,75 @@ export function useDrawing(canvasRef: Ref<HTMLCanvasElement | null>) {
         }
         const lh = Math.round(fs * 1.3)
         const h = lines.length * lh
-        const boxX = action.points[0].x - 10
-        const boxY = action.points[0].y - lh / 2 - 10
+        const boxX = pts[0].x - 10
+        const boxY = pts[0].y - lh / 2 - 10
         if (p.x >= boxX && p.x <= boxX + maxWidth + 20 && p.y >= boxY && p.y <= boxY + h + 20) {
           return { action, index: i }
         }
+        continue
+      }
+
+      if (action.tool === 'pen' || action.tool === 'highlighter' || action.tool === 'eraser') {
+        if (pts.length === 1) {
+          if (Math.hypot(p.x - pts[0].x, p.y - pts[0].y) <= threshold) return { action, index: i }
+        } else {
+          for (let j = 0; j < pts.length - 1; j++) {
+            if (distancePointToSegment(p, pts[j], pts[j + 1]) <= threshold) return { action, index: i }
+          }
+        }
+        continue
+      }
+
+      if (action.tool === 'line' || action.tool === 'arrow') {
+        if (pts.length >= 2) {
+          if (distancePointToSegment(p, pts[0], pts[1]) <= threshold) return { action, index: i }
+        }
+        continue
+      }
+
+      if (action.tool === 'rect') {
+        if (pts.length >= 2) {
+          const minX = Math.min(pts[0].x, pts[1].x)
+          const maxX = Math.max(pts[0].x, pts[1].x)
+          const minY = Math.min(pts[0].y, pts[1].y)
+          const maxY = Math.max(pts[0].y, pts[1].y)
+          
+          const d1 = distancePointToSegment(p, {x: minX, y: minY}, {x: maxX, y: minY})
+          const d2 = distancePointToSegment(p, {x: maxX, y: minY}, {x: maxX, y: maxY})
+          const d3 = distancePointToSegment(p, {x: maxX, y: maxY}, {x: minX, y: maxY})
+          const d4 = distancePointToSegment(p, {x: minX, y: maxY}, {x: minX, y: minY})
+          
+          if (Math.min(d1, d2, d3, d4) <= threshold) return { action, index: i }
+        }
+        continue
+      }
+
+      if (action.tool === 'ellipse') {
+        if (pts.length >= 2) {
+          const cx = (pts[0].x + pts[1].x) / 2
+          const cy = (pts[0].y + pts[1].y) / 2
+          const rx = Math.abs(pts[1].x - pts[0].x) / 2
+          const ry = Math.abs(pts[1].y - pts[0].y) / 2
+          
+          if (rx < 1 || ry < 1) {
+            if (Math.hypot(p.x - cx, p.y - cy) <= threshold) return { action, index: i }
+            continue
+          }
+
+          if (p.x < cx - rx - threshold || p.x > cx + rx + threshold ||
+              p.y < cy - ry - threshold || p.y > cy + ry + threshold) continue
+
+          let minDist = Infinity
+          for (let j = 0; j < 32; j++) {
+            const angle = (j / 32) * Math.PI * 2
+            const px = cx + rx * Math.cos(angle)
+            const py = cy + ry * Math.sin(angle)
+            const dist = Math.hypot(p.x - px, p.y - py)
+            if (dist < minDist) minDist = dist
+          }
+          if (minDist <= threshold) return { action, index: i }
+        }
+        continue
       }
     }
     return null
@@ -412,7 +490,7 @@ export function useDrawing(canvasRef: Ref<HTMLCanvasElement | null>) {
     startDraw,
     draw,
     endDraw,
-    findTextAt,
+    findActionAt,
     removeAction,
     addTextAction,
     undo,
