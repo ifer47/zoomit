@@ -27,7 +27,7 @@ pub struct GeneralConfig {
 impl Default for GeneralConfig {
     fn default() -> Self {
         Self {
-            enable_dragging: true,
+            enable_dragging: false,
         }
     }
 }

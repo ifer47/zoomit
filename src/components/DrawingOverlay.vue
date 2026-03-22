@@ -129,7 +129,7 @@ const hoveredActionInfo = shallowRef<{ action: DrawAction, index: number } | nul
 const isMoving = ref(false)
 const moveStartPos = shallowRef<{ x: number, y: number } | null>(null)
 const originalActionPoints = shallowRef<{x: number, y: number}[]>([])
-const enableDragging = ref(true)
+const enableDragging = ref(false)
 
 function resizeCanvas() {
   const canvas = canvasRef.value
@@ -435,7 +435,7 @@ onMounted(async () => {
   // Fetch initial config
   try {
     const cfg = await invoke<AppConfig>('get_config')
-    enableDragging.value = cfg.general?.enableDragging ?? true
+    enableDragging.value = cfg.general?.enableDragging ?? false
   } catch (error) {
     console.error('Failed to get initial config:', error)
   }
@@ -443,7 +443,7 @@ onMounted(async () => {
   // Listen to config changes
   unlisteners.push(
     await listen<AppConfig>('config-changed', (event) => {
-      enableDragging.value = event.payload.general?.enableDragging ?? true
+      enableDragging.value = event.payload.general?.enableDragging ?? false
     })
   )
 

@@ -119,7 +119,7 @@ async function resetDefaults() {
 }
 
 const autoStartEnabled = ref(false)
-const enableDragging = ref(true)
+const enableDragging = ref(false)
 
 async function toggleAutoStart() {
   try {
@@ -138,7 +138,7 @@ async function toggleDragging() {
   enableDragging.value = !enableDragging.value
   try {
     const cfg = await invoke<AppConfig>('get_config')
-    if (!cfg.general) cfg.general = { enableDragging: true }
+    if (!cfg.general) cfg.general = { enableDragging: false }
     cfg.general.enableDragging = enableDragging.value
     await invoke('save_general', { general: cfg.general })
   } catch (error) {
@@ -149,7 +149,7 @@ async function toggleDragging() {
 onMounted(async () => {
   const cfg = await invoke<AppConfig>('get_config')
   Object.assign(shortcuts, cfg.shortcuts)
-  enableDragging.value = cfg.general?.enableDragging ?? true
+  enableDragging.value = cfg.general?.enableDragging ?? false
   window.addEventListener('keydown', onKeyDown, true)
   
   try {
