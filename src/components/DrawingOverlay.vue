@@ -3,6 +3,7 @@ import { ref, shallowRef, onMounted, onUnmounted, nextTick, computed, type Compo
 import { invoke } from '@tauri-apps/api/core'
 import { listen, type UnlistenFn } from '@tauri-apps/api/event'
 import { useDrawing, type Tool, type DrawAction } from '../composables/useDrawing'
+import type { AppConfig } from '../types/app'
 import SettingsPanel from './SettingsPanel.vue'
 import TextBox from './TextBox.vue'
 import {
@@ -128,6 +129,7 @@ const hoveredActionInfo = shallowRef<{ action: DrawAction, index: number } | nul
 const isMoving = ref(false)
 const moveStartPos = shallowRef<{ x: number, y: number } | null>(null)
 const originalActionPoints = shallowRef<{x: number, y: number}[]>([])
+const enableDragging = ref(true)
 
 function resizeCanvas() {
   const canvas = canvasRef.value
@@ -214,7 +216,7 @@ function onMouseDown(e: MouseEvent) {
   }
 
   // 优先处理拖拽，无论在什么工具模式下，只要放在已有元素上，按下就是拖拽
-  if (hoveredActionInfo.value) {
+  if (hoveredActionInfo.value && enableDragging.value) {
     isMoving.value = true
     moveStartPos.value = { x: e.clientX, y: e.clientY }
     originalActionPoints.value = hoveredActionInfo.value.action.points.map(p => ({ ...p }))
@@ -258,7 +260,7 @@ function onPointerMove(e: PointerEvent) {
   }
 
   if (!isDrawing.value) {
-    if (active.value && !showSettings.value && !showQuickColors.value && !textBoxPos.value) {
+    if (active.value && !showSettings.value && !showQuickColors.value && !textBoxPos.value && enableDragging.value) {
       hoveredActionInfo.value = findActionAt(mousePos.value)
     } else {
       hoveredActionInfo.value = null
@@ -377,7 +379,7 @@ function onKeyDown(e: KeyboardEvent) {
 }
 
 const cursorStyle = computed(() => {
-  if (isMoving.value || (hoveredActionInfo.value && !isDrawing.value)) return 'move'
+  if (enableDragging.value && (isMoving.value || (hoveredActionInfo.value && !isDrawing.value))) return 'move'
   if (currentTool.value === 'text') return 'text'
   if (showQuickColors.value || showSettings.value) return 'default'
 
@@ -429,6 +431,21 @@ onMounted(async () => {
   window.addEventListener('resize', resizeCanvas)
   window.addEventListener('keydown', onKeyDown)
   window.addEventListener('keyup', onKeyUp)
+
+  // Fetch initial config
+  try {
+    const cfg = await invoke<AppConfig>('get_config')
+    enableDragging.value = cfg.general?.enableDragging ?? true
+  } catch (error) {
+    console.error('Failed to get initial config:', error)
+  }
+
+  // Listen to config changes
+  unlisteners.push(
+    await listen<AppConfig>('config-changed', (event) => {
+      enableDragging.value = event.payload.general?.enableDragging ?? true
+    })
+  )
 
   unlisteners.push(
     await listen<boolean>('toggle-drawing', (event) => {

@@ -3,6 +3,9 @@ export interface AppConfig {
     toggleDrawing: string
     clearDrawing: string
   }
+  general: {
+    enableDragging: boolean
+  }
 }
 
 export interface SaveResult {

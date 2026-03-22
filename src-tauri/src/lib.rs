@@ -19,8 +19,24 @@ pub struct Shortcuts {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GeneralConfig {
+    #[serde(rename = "enableDragging")]
+    pub enable_dragging: bool,
+}
+
+impl Default for GeneralConfig {
+    fn default() -> Self {
+        Self {
+            enable_dragging: true,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppConfig {
     pub shortcuts: Shortcuts,
+    #[serde(default)]
+    pub general: GeneralConfig,
 }
 
 impl Default for AppConfig {
@@ -30,6 +46,7 @@ impl Default for AppConfig {
                 toggle_drawing: "Ctrl+Shift+D".into(),
                 clear_drawing: "Ctrl+Shift+C".into(),
             },
+            general: GeneralConfig::default(),
         }
     }
 }
@@ -246,6 +263,19 @@ fn save_shortcuts(
 }
 
 #[tauri::command]
+fn save_general(
+    app: AppHandle,
+    state: tauri::State<'_, AppState>,
+    general: GeneralConfig,
+) -> Result<(), String> {
+    let mut cfg = state.config.lock().unwrap();
+    cfg.general = general.clone();
+    save_config(&app, &cfg);
+    app.emit("config-changed", cfg.clone()).ok();
+    Ok(())
+}
+
+#[tauri::command]
 fn exit_drawing(app: AppHandle, state: tauri::State<'_, AppState>) {
     let mut is_drawing = state.is_drawing.lock().unwrap();
     if *is_drawing {
@@ -282,6 +312,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             get_config,
             save_shortcuts,
+            save_general,
             exit_drawing,
             set_ignore_mouse,
         ])
